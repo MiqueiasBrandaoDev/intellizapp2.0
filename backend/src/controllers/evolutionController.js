@@ -304,9 +304,9 @@ export const getInstanceGroups = async (req, res) => {
     // Skip instance status check for now - it's causing issues
     console.log('⏭️ Skipping instance status check, proceeding directly to fetch groups...');
 
-    // Create AbortController for timeout - reduced to 20 seconds
+    // Create AbortController for timeout - increased to 2 minutes for groups fetch
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
 
     try {
       console.log('🔄 Fetching groups with retry logic...');

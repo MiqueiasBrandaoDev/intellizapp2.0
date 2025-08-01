@@ -26,8 +26,15 @@ class ApiService {
     const url = `${API_BASE_URL}${endpoint}`;
     const token = localStorage.getItem('intellizapp_token');
     
+    // Set default timeout to 2 minutes for Evolution API calls
+    const controller = new AbortController();
+    const isEvolutionCall = endpoint.includes('/evolution/');
+    const timeoutMs = isEvolutionCall ? 120000 : 30000; // 2 minutes for Evolution, 30s for others
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
     const config: RequestInit = {
       ...options,
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` }),
@@ -37,6 +44,7 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         const error = await response.json();
@@ -45,6 +53,7 @@ class ApiService {
 
       return await response.json();
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error(`API Error [${endpoint}]:`, error);
       throw error;
     }
