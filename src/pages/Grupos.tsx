@@ -45,6 +45,7 @@ const Grupos = () => {
     participantes: number;
   } | null>(null);
   const [evolutionSearchTerm, setEvolutionSearchTerm] = useState('');
+  const [updatingGroups, setUpdatingGroups] = useState<Set<number>>(new Set());
   
   
   const {
@@ -79,6 +80,7 @@ const Grupos = () => {
   );
 
   const handleToggleActive = async (id: number, currentStatus: boolean) => {
+    setUpdatingGroups(prev => new Set(prev).add(id));
     try {
       updateGrupo({ id, data: { resumo_ativo: !currentStatus } });
       
@@ -91,6 +93,12 @@ const Grupos = () => {
         variant: "destructive",
         title: "Erro",
         description: "Não foi possível atualizar a configuração de resumos."
+      });
+    } finally {
+      setUpdatingGroups(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
       });
     }
   };
@@ -113,6 +121,7 @@ const Grupos = () => {
   };
 
   const handleToggleTranscricao = async (id: number, currentStatus: boolean) => {
+    setUpdatingGroups(prev => new Set(prev).add(id));
     try {
       updateGrupo({ id, data: { transcricao_ativa: !currentStatus } });
       
@@ -126,10 +135,17 @@ const Grupos = () => {
         title: "Erro",
         description: "Não foi possível atualizar a configuração de transcrição."
       });
+    } finally {
+      setUpdatingGroups(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
   const handleToggleLudico = async (id: number, currentStatus: boolean) => {
+    setUpdatingGroups(prev => new Set(prev).add(id));
     try {
       updateGrupo({ id, data: { ludico: !currentStatus } });
       
@@ -142,6 +158,12 @@ const Grupos = () => {
         variant: "destructive",
         title: "Erro",
         description: "Não foi possível atualizar o modo lúdico."
+      });
+    } finally {
+      setUpdatingGroups(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
       });
     }
   };
@@ -483,29 +505,51 @@ const Grupos = () => {
             <CardContent className="space-y-4">
               {/* Configurações */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Resumos ativos</span>
-                  <Switch
-                    checked={grupo.resumo_ativo}
-                    onCheckedChange={() => handleToggleActive(grupo.id, grupo.resumo_ativo)}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Transcrição de áudios</span>
-                  <Switch
-                    checked={grupo.transcricao_ativa}
-                    onCheckedChange={() => handleToggleTranscricao(grupo.id, grupo.transcricao_ativa)}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Modo lúdico</span>
-                  <Switch
-                    checked={grupo.ludico}
-                    onCheckedChange={() => handleToggleLudico(grupo.id, grupo.ludico)}
-                  />
-                </div>
+                {isLoading || updatingGroups.has(grupo.id) ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">Resumos ativos</span>
+                      <div className="w-11 h-6 bg-muted rounded-full animate-pulse" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">Transcrição de áudios</span>
+                      <div className="w-11 h-6 bg-muted rounded-full animate-pulse" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">Modo lúdico</span>
+                      <div className="w-11 h-6 bg-muted rounded-full animate-pulse" />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Resumos ativos</span>
+                      <Switch
+                        checked={grupo.resumo_ativo || false}
+                        onCheckedChange={() => handleToggleActive(grupo.id, grupo.resumo_ativo)}
+                        disabled={isUpdating || updatingGroups.has(grupo.id)}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Transcrição de áudios</span>
+                      <Switch
+                        checked={grupo.transcricao_ativa || false}
+                        onCheckedChange={() => handleToggleTranscricao(grupo.id, grupo.transcricao_ativa)}
+                        disabled={isUpdating || updatingGroups.has(grupo.id)}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Modo lúdico</span>
+                      <Switch
+                        checked={grupo.ludico || false}
+                        onCheckedChange={() => handleToggleLudico(grupo.id, grupo.ludico)}
+                        disabled={isUpdating || updatingGroups.has(grupo.id)}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Stats */}
