@@ -4,6 +4,10 @@ import { query } from '../config/database.js';
 const EVOLUTION_API_URL = process.env.VITE_EVOLUTION_API_URL || process.env.EVOLUTION_API_URL || 'http://localhost:8080';
 const EVOLUTION_API_KEY = process.env.VITE_EVOLUTION_API_KEY || process.env.EVOLUTION_API_KEY || 'your-evolution-api-key';
 
+// Simple in-memory cache for Evolution API groups
+const groupsCache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 export const connectInstance = async (req, res) => {
   try {
     const { instanceName, userId } = req.body;
@@ -298,6 +302,20 @@ export const getInstanceGroups = async (req, res) => {
       });
     }
 
+    // Check cache first
+    const cacheKey = `${instanceName}_${userId}`;
+    const cachedData = groupsCache.get(cacheKey);
+    
+    if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
+      console.log('🎯 Cache hit! Returning cached groups');
+      return res.json({
+        success: true,
+        message: `${cachedData.data.length} grupos encontrados (cache)`,
+        data: cachedData.data,
+        cached: true
+      });
+    }
+
     console.log('🔧 EVOLUTION_API_URL:', EVOLUTION_API_URL || 'NOT SET');
     console.log('🔑 EVOLUTION_API_KEY present:', !!EVOLUTION_API_KEY);
 
@@ -347,7 +365,15 @@ export const getInstanceGroups = async (req, res) => {
         descricao: group.desc || null
       }));
 
+      // Cache the result
+      groupsCache.set(cacheKey, {
+        data: formattedGroups,
+        timestamp: Date.now()
+      });
+      
+      console.log('💾 Groups cached successfully');
       console.log('✅ Groups formatted successfully');
+      
       res.json({
         success: true,
         message: `${groups.length} grupos encontrados`,

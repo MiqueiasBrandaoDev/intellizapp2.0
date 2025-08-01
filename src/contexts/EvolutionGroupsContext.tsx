@@ -15,6 +15,7 @@ interface EvolutionGroupsContextType {
   error: Error | null;
   refetch: () => void;
   preloadGroups: (instanceName: string) => void;
+  isRetrying: boolean;
 }
 
 const EvolutionGroupsContext = createContext<EvolutionGroupsContextType | undefined>(undefined);
@@ -31,6 +32,7 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const [shouldLoad, setShouldLoad] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
   
   const instanceName = user?.nome || '';
 
@@ -49,6 +51,30 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
     cacheTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: true, // Recarregar quando a página ganhar foco
     refetchOnMount: true, // Recarregar quando o componente for montado
+    retry: (failureCount, error: any) => {
+      // Retry até 2 vezes se for erro de timeout ou 500
+      if (failureCount < 2) {
+        const isTimeoutError = error?.message?.includes('timeout') || 
+                              error?.message?.includes('demorando') ||
+                              error?.message?.includes('WhatsApp está demorando');
+        const is500Error = error?.message?.includes('500') || error?.message?.includes('Internal Server Error');
+        
+        if (isTimeoutError || is500Error) {
+          console.log(`🔄 Retry ${failureCount + 1}/2 for Evolution Groups due to timeout/500 error`);
+          setIsRetrying(true);
+          return true;
+        }
+      }
+      setIsRetrying(false);
+      return false;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff, max 30s
+    onSuccess: () => {
+      setIsRetrying(false);
+    },
+    onError: () => {
+      setIsRetrying(false);
+    }
   });
 
   // Função para pré-carregar grupos (chamada no login)
@@ -98,6 +124,7 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
     error,
     refetch,
     preloadGroups,
+    isRetrying,
   };
 
   return (
