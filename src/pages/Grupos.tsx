@@ -67,7 +67,8 @@ const Grupos = () => {
     evolutionGroups,
     isLoading: evolutionLoading,
     error: evolutionError,
-    refetch: refetchEvolutionGroups
+    refetch: refetchEvolutionGroups,
+    isRetrying: evolutionRetrying
   } = useEvolutionGroupsContext();
 
   const filteredGroups = grupos.filter(grupo =>
@@ -382,11 +383,19 @@ const Grupos = () => {
                   {evolutionLoading ? (
                     <div className="flex items-center justify-center py-8">
                       <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                      Carregando grupos...
+                      {evolutionRetrying ? 'Tentando novamente...' : 'Carregando grupos...'}
                     </div>
                   ) : evolutionError ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      Erro ao carregar grupos do WhatsApp
+                    <div className="text-center py-8 space-y-2">
+                      <div className="text-muted-foreground">
+                        Erro ao carregar grupos do WhatsApp
+                      </div>
+                      {evolutionRetrying && (
+                        <div className="flex items-center justify-center text-sm text-blue-500">
+                          <RefreshCw className="h-3 w-3 animate-spin mr-1" />
+                          Tentando novamente...
+                        </div>
+                      )}
                     </div>
                   ) : filteredEvolutionGroups.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
