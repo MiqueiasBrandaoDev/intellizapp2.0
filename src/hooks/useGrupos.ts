@@ -17,6 +17,9 @@ export const useGrupos = () => {
     queryKey: ['grupos', user?.id],
     queryFn: () => user ? apiService.getGrupos(user.id) : Promise.resolve(null),
     enabled: !!user?.id,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes (renamed from cacheTime)
+    refetchOnWindowFocus: false,
   });
 
   const createGrupoMutation = useMutation({
@@ -36,14 +39,14 @@ export const useGrupos = () => {
       // Snapshot dos dados atuais
       const previousGroups = queryClient.getQueryData(['grupos', user?.id]);
       
-      // Atualização otimista
+      // Atualização otimista mais segura
       queryClient.setQueryData(['grupos', user?.id], (old: any) => {
-        if (!old?.data) return old;
+        if (!old?.data || !Array.isArray(old.data)) return old;
         
         return {
           ...old,
           data: old.data.map((grupo: Grupo) => 
-            grupo.id === id ? { ...grupo, ...data } : grupo
+            grupo.id === id ? { ...grupo, ...data, updated_at: new Date().toISOString() } : grupo
           )
         };
       });
@@ -56,9 +59,11 @@ export const useGrupos = () => {
         queryClient.setQueryData(['grupos', user?.id], context.previousGroups);
       }
     },
-    onSettled: () => {
-      // Sempre invalidar após a operação
-      queryClient.invalidateQueries({ queryKey: ['grupos'] });
+    onSuccess: () => {
+      // Apenas invalidar em caso de sucesso para manter dados atualizados
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['grupos', user?.id] });
+      }, 100);
     },
   });
 
