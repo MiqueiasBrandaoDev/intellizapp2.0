@@ -49,7 +49,8 @@ app.use(express.urlencoded({ extended: true }));
 // Set server timeout to 3 minutes for long-running Evolution API calls
 app.use((req, res, next) => {
   // Set timeout to 3 minutes for Evolution API routes
-  if (req.path.includes('/evolution/')) {
+  if (req.path.includes('/evolution/') || req.path.includes('/api/evolution/')) {
+    console.log(`🕐 Setting 3-minute timeout for Evolution route: ${req.path}`);
     req.setTimeout(180000); // 3 minutes
     res.setTimeout(180000); // 3 minutes
   } else {

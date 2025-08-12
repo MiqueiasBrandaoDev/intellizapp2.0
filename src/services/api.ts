@@ -26,10 +26,10 @@ class ApiService {
     const url = `${API_BASE_URL}${endpoint}`;
     const token = localStorage.getItem('intellizapp_token');
     
-    // Set default timeout to 2 minutes for Evolution API calls
+    // Set default timeout to 3 minutes for Evolution API calls
     const controller = new AbortController();
     const isEvolutionCall = endpoint.includes('/evolution/');
-    const timeoutMs = isEvolutionCall ? 120000 : 30000; // 2 minutes for Evolution, 30s for others
+    const timeoutMs = isEvolutionCall ? 180000 : 30000; // 3 minutes for Evolution, 30s for others
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     
     const config: RequestInit = {
