@@ -47,13 +47,6 @@ const Grupos = () => {
   const [evolutionSearchTerm, setEvolutionSearchTerm] = useState('');
   const [updatingGroups, setUpdatingGroups] = useState<Set<number>>(new Set());
   
-  // Limpar estado de updating quando os dados recarregarem
-  useEffect(() => {
-    if (!isLoading && !isUpdating) {
-      setUpdatingGroups(new Set());
-    }
-  }, [grupos, isLoading, isUpdating]);
-  
   const {
     grupos,
     isLoading,
@@ -67,6 +60,13 @@ const Grupos = () => {
     isCreating,
     createError
   } = useGrupos();
+  
+  // Limpar estado de updating quando os dados recarregarem
+  useEffect(() => {
+    if (!isLoading && !isUpdating) {
+      setUpdatingGroups(new Set());
+    }
+  }, [grupos, isLoading, isUpdating]);
 
   // Usar contexto global para grupos da Evolution API
   const {
