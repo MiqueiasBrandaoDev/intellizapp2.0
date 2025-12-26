@@ -26,7 +26,7 @@ const DashboardLayout = () => {
 
   // Redirecionar usuários sem plano ativo para página Meu Plano
   useEffect(() => {
-    if (user && user.plano_ativo !== 1 && location.pathname !== '/dashboard/meu-plano') {
+    if (user && !user.plano_ativo && location.pathname !== '/dashboard/meu-plano') {
       navigate('/dashboard/meu-plano', { replace: true });
     }
   }, [user, location.pathname, navigate]);
@@ -39,11 +39,12 @@ const DashboardLayout = () => {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, requiresActivePlan: true },
     { name: 'Grupos', href: '/dashboard/grupos', icon: Users, requiresActivePlan: true },
     { name: 'Resumos', href: '/dashboard/resumos', icon: FileText, requiresActivePlan: true },
-    { name: 'IntelliChat', href: '/dashboard/intellichat', icon: Sparkles, requiresActivePlan: true },
     { name: 'Conexão', href: '/dashboard/conexao', icon: Smartphone, requiresActivePlan: true },
     { name: 'Configurações', href: '/dashboard/settings', icon: Settings, requiresActivePlan: true },
     { name: 'Meu Plano', href: '/dashboard/meu-plano', icon: Crown, requiresActivePlan: false },
   ];
+
+  const intelliChatItem = { name: 'IntelliChat', href: '/dashboard/intellichat', icon: Sparkles, requiresActivePlan: true };
 
   const isActiveRoute = (href: string) => {
     if (href === '/dashboard') {
@@ -88,19 +89,19 @@ const DashboardLayout = () => {
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-2">
             {navigation
-              .filter(item => !item.requiresActivePlan || user?.plano_ativo === 1)
+              .filter(item => !item.requiresActivePlan || user?.plano_ativo)
               .map((item) => {
                 const Icon = item.icon;
                 const isActive = isActiveRoute(item.href);
-                
+
                 return (
                   <Link
                     key={item.name}
                     to={item.href}
                     className={`
                       flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
-                      ${isActive 
-                        ? 'bg-primary/20 text-primary' 
+                      ${isActive
+                        ? 'bg-primary/20 text-primary'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                       }
                     `}
@@ -112,6 +113,31 @@ const DashboardLayout = () => {
                 );
               })}
           </nav>
+
+          {/* IntelliChat - Destaque Especial */}
+          {user?.plano_ativo && (
+            <div className="px-4 pb-4">
+              <Link
+                to={intelliChatItem.href}
+                className={`
+                  relative flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-all duration-300
+                  border-2
+                  ${isActiveRoute(intelliChatItem.href)
+                    ? 'bg-primary/20 text-primary border-primary shadow-lg shadow-primary/50'
+                    : 'text-primary border-primary/30 hover:border-primary hover:bg-primary/10 hover:shadow-lg hover:shadow-primary/30'
+                  }
+                `}
+                onClick={() => setSidebarOpen(false)}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent rounded-lg" />
+                <Sparkles className="mr-3 h-5 w-5 relative z-10" />
+                <span className="relative z-10 font-semibold">{intelliChatItem.name}</span>
+                <div className="ml-auto relative z-10">
+                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                </div>
+              </Link>
+            </div>
+          )}
 
           {/* User info and logout */}
           <div className="border-t border-border p-4">
