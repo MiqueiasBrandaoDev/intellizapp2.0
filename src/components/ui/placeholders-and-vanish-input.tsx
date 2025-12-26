@@ -8,10 +8,12 @@ export function PlaceholdersAndVanishInput({
   placeholders,
   onChange,
   onSubmit,
+  value: externalValue,
 }: {
   placeholders: string[];
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  value?: string;
 }) {
   const [currentPlaceholder, setCurrentPlaceholder] = useState(0);
 
@@ -47,6 +49,13 @@ export function PlaceholdersAndVanishInput({
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState("");
   const [animating, setAnimating] = useState(false);
+
+  // Sync external value with internal state
+  useEffect(() => {
+    if (externalValue !== undefined && externalValue !== value && !animating) {
+      setValue(externalValue);
+    }
+  }, [externalValue, animating]);
 
   const draw = useCallback(() => {
     if (!inputRef.current) return;

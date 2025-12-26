@@ -144,7 +144,7 @@ const DashboardLayout = () => {
       <div className="lg:pl-64 xl:pl-72">
         {/* Top bar */}
         <div className="sticky top-0 z-30 bg-card/80 backdrop-blur-md border-b border-border">
-          <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center px-4 sm:px-6 lg:px-8">
             <Button
               variant="ghost"
               size="icon"
@@ -153,15 +153,6 @@ const DashboardLayout = () => {
             >
               <Menu className="h-5 w-5" />
             </Button>
-            
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground hidden sm:inline">
-                Instância: <span className="text-foreground font-medium">{user?.instancia}</span>
-              </span>
-              <span className="text-xs text-muted-foreground sm:hidden">
-                {user?.instancia}
-              </span>
-            </div>
           </div>
         </div>
 

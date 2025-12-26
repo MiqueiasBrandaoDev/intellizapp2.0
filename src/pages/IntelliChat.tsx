@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { PlaceholdersAndVanishInput } from '@/components/ui/placeholders-and-vanish-input';
 import { AIVoiceInput } from '@/components/ui/ai-voice-input';
 import { Card } from '@/components/ui/card';
 import { Loader2, Bot, User, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiService } from '@/services/api';
+import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 
 interface Message {
   id: string;
@@ -19,7 +20,10 @@ export default function IntelliChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [showVoiceInput, setShowVoiceInput] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const voiceRecording = useVoiceRecording();
 
   const placeholders = [
     "Resuma as conversas de hoje...",
@@ -34,14 +38,31 @@ export default function IntelliChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingMessageId]);
 
+  // When audio blob is ready, transcribe it
+  useEffect(() => {
+    if (voiceRecording.audioBlob && !voiceRecording.isRecording && showVoiceInput) {
+      handleVoiceRecordingComplete();
+    }
+  }, [voiceRecording.audioBlob, voiceRecording.isRecording, showVoiceInput]);
+
   const sendMessageToAI = async (input: string) => {
     try {
       const result = await apiService.sendIntelliChatMessage(input);
-      // O backend retorna { success: true, response: "...", data: {...} }
-      // que é encapsulado pelo ApiResponse como { success: true, data: { response: "...", data: {...} } }
-      return (result.data?.response as string) || 'Desculpe, não consegui processar sua solicitação.';
+      console.log('📥 Resposta da API recebida:', result);
+
+      // O backend retorna { success: true, data: { response: "...", ... } }
+      // Tenta pegar a resposta de diferentes campos possíveis
+      const response = (result.data?.response || result.data?.output || result.data?.message) as string;
+
+      if (!response) {
+        console.error('❌ Resposta da API sem conteúdo:', result);
+        throw new Error('Resposta vazia da API');
+      }
+
+      console.log('✅ Resposta extraída:', response);
+      return response;
     } catch (error) {
-      console.error('Error sending message to AI:', error);
+      console.error('❌ Error sending message to AI:', error);
       throw error;
     }
   };
@@ -116,8 +137,39 @@ export default function IntelliChat() {
     setInputValue(e.target.value);
   };
 
+  const handleVoiceRecordingComplete = useCallback(async () => {
+    if (!voiceRecording.audioBlob) {
+      console.error('❌ Nenhum áudio gravado');
+      return;
+    }
+
+    setIsTranscribing(true);
+
+    try {
+      console.log('🎤 Transcrevendo áudio...');
+      const result = await apiService.transcribeAudio(voiceRecording.audioBlob);
+
+      const transcribedText = result.data?.text?.trim() || '';
+
+      if (transcribedText) {
+        console.log('✅ Texto transcrito com sucesso:', transcribedText);
+        setInputValue(transcribedText);
+        setShowVoiceInput(false);
+        voiceRecording.clearRecording();
+      } else {
+        console.error('❌ Nenhum texto foi retornado pela transcrição');
+        alert('Não foi possível transcrever o áudio. Tente novamente.');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao transcrever áudio:', error);
+      alert('Erro ao transcrever áudio. Verifique sua conexão e tente novamente.');
+    } finally {
+      setIsTranscribing(false);
+    }
+  }, [voiceRecording]);
+
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] bg-gradient-to-br from-background via-background to-primary/5">
+    <div className="flex flex-col fixed inset-0 top-16 lg:left-64 xl:left-72 bg-gradient-to-br from-background via-background to-primary/5">
       {/* Header */}
       <div className="flex-shrink-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-center justify-between p-4">
@@ -226,6 +278,7 @@ export default function IntelliChat() {
                 placeholders={placeholders}
                 onChange={handleChange}
                 onSubmit={handleSubmit}
+                value={inputValue}
               />
               <button
                 onClick={() => setShowVoiceInput(true)}
@@ -236,16 +289,39 @@ export default function IntelliChat() {
             </div>
           ) : (
             <div className="space-y-4">
-              <AIVoiceInput
-                onStart={() => console.log('Voice recording started')}
-                onStop={(duration) => {
-                  console.log('Voice recording stopped, duration:', duration);
-                  // TODO: Implement voice-to-text conversion
-                }}
-              />
+              {isTranscribing ? (
+                <div className="flex flex-col items-center gap-4 py-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Transcrevendo áudio...</p>
+                </div>
+              ) : (
+                <>
+                  <AIVoiceInput
+                    isRecording={voiceRecording.isRecording}
+                    recordingTime={voiceRecording.recordingTime}
+                    onStart={async () => {
+                      console.log('🎤 Iniciando gravação...');
+                      await voiceRecording.startRecording();
+                    }}
+                    onStop={() => {
+                      console.log('⏹️ Parando gravação...');
+                      voiceRecording.stopRecording();
+                    }}
+                  />
+                  {voiceRecording.error && (
+                    <p className="text-xs text-destructive text-center">
+                      {voiceRecording.error}
+                    </p>
+                  )}
+                </>
+              )}
               <button
-                onClick={() => setShowVoiceInput(false)}
+                onClick={() => {
+                  setShowVoiceInput(false);
+                  voiceRecording.clearRecording();
+                }}
                 className="text-xs text-muted-foreground hover:text-foreground transition-colors mx-auto block"
+                disabled={isTranscribing}
               >
                 Voltar para texto
               </button>

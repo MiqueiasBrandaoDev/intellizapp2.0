@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 interface AIVoiceInputProps {
   onStart?: () => void;
   onStop?: (duration: number) => void;
+  onRecordingComplete?: (audioBlob: Blob) => void;
+  isRecording?: boolean;
+  recordingTime?: number;
   visualizerBars?: number;
   demoMode?: boolean;
   demoInterval?: number;
@@ -16,6 +19,9 @@ interface AIVoiceInputProps {
 export function AIVoiceInput({
   onStart,
   onStop,
+  onRecordingComplete,
+  isRecording: externalIsRecording,
+  recordingTime: externalRecordingTime,
   visualizerBars = 48,
   demoMode = false,
   demoInterval = 3000,
@@ -26,11 +32,18 @@ export function AIVoiceInput({
   const [isClient, setIsClient] = useState(false);
   const [isDemo, setIsDemo] = useState(demoMode);
 
+  // Use external recording state if provided, otherwise use internal state
+  const isRecording = externalIsRecording !== undefined ? externalIsRecording : submitted;
+  const displayTime = externalRecordingTime !== undefined ? externalRecordingTime : time;
+
   useEffect(() => {
     setIsClient(true);
   }, []);
 
   useEffect(() => {
+    // Only run internal timer if not using external recording control
+    if (externalIsRecording !== undefined) return;
+
     let intervalId: NodeJS.Timeout;
 
     if (submitted) {
@@ -44,10 +57,11 @@ export function AIVoiceInput({
     }
 
     return () => clearInterval(intervalId);
-  }, [submitted, time, onStart, onStop]);
+  }, [submitted, time, onStart, onStop, externalIsRecording]);
 
   useEffect(() => {
-    if (!isDemo) return;
+    // Only run demo mode if not using external recording control
+    if (!isDemo || externalIsRecording !== undefined) return;
 
     let timeoutId: NodeJS.Timeout;
     const runAnimation = () => {
@@ -63,7 +77,7 @@ export function AIVoiceInput({
       clearTimeout(timeoutId);
       clearTimeout(initialTimeout);
     };
-  }, [isDemo, demoInterval]);
+  }, [isDemo, demoInterval, externalIsRecording]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -76,7 +90,17 @@ export function AIVoiceInput({
       setIsDemo(false);
       setSubmitted(false);
     } else {
-      setSubmitted((prev) => !prev);
+      // If external recording control is provided, call the callbacks
+      if (externalIsRecording !== undefined) {
+        if (externalIsRecording) {
+          onStop?.(externalRecordingTime || 0);
+        } else {
+          onStart?.();
+        }
+      } else {
+        // Otherwise use internal state
+        setSubmitted((prev) => !prev);
+      }
     }
   };
 
@@ -86,32 +110,32 @@ export function AIVoiceInput({
         <button
           className={cn(
             "group w-16 h-16 rounded-xl flex items-center justify-center transition-colors",
-            submitted
+            isRecording
               ? "bg-none"
-              : "bg-none hover:bg-black/10 dark:hover:bg-white/10"
+              : "bg-none hover:bg-primary/10"
           )}
           type="button"
           onClick={handleClick}
         >
-          {submitted ? (
+          {isRecording ? (
             <div
-              className="w-6 h-6 rounded-sm animate-spin bg-black dark:bg-white cursor-pointer pointer-events-auto"
-              style={{ animationDuration: "3s" }}
+              className="w-6 h-6 rounded-sm animate-pulse bg-primary cursor-pointer pointer-events-auto"
+              style={{ animationDuration: "1s" }}
             />
           ) : (
-            <Mic className="w-6 h-6 text-black/70 dark:text-white/70" />
+            <Mic className="w-6 h-6 text-primary" />
           )}
         </button>
 
         <span
           className={cn(
             "font-mono text-sm transition-opacity duration-300",
-            submitted
-              ? "text-black/70 dark:text-white/70"
-              : "text-black/30 dark:text-white/30"
+            isRecording
+              ? "text-foreground"
+              : "text-muted-foreground"
           )}
         >
-          {formatTime(time)}
+          {formatTime(displayTime)}
         </span>
 
         <div className="h-4 w-64 flex items-center justify-center gap-0.5">
@@ -120,12 +144,12 @@ export function AIVoiceInput({
               key={i}
               className={cn(
                 "w-0.5 rounded-full transition-all duration-300",
-                submitted
-                  ? "bg-black/50 dark:bg-white/50 animate-pulse"
-                  : "bg-black/10 dark:bg-white/10 h-1"
+                isRecording
+                  ? "bg-primary/50 animate-pulse"
+                  : "bg-muted-foreground/20 h-1"
               )}
               style={
-                submitted && isClient
+                isRecording && isClient
                   ? {
                       height: `${20 + Math.random() * 80}%`,
                       animationDelay: `${i * 0.05}s`,
@@ -136,8 +160,8 @@ export function AIVoiceInput({
           ))}
         </div>
 
-        <p className="h-4 text-xs text-black/70 dark:text-white/70">
-          {submitted ? "Listening..." : "Click to speak"}
+        <p className="h-4 text-xs text-muted-foreground">
+          {isRecording ? "Gravando... Clique para parar" : "Clique para gravar"}
         </p>
       </div>
     </div>

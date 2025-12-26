@@ -227,11 +227,45 @@ class ApiService {
   }
 
   // IntelliChat endpoints
-  async sendIntelliChatMessage(input: string): Promise<ApiResponse<{ response: string; data?: any; fallback?: boolean }>> {
+  async sendIntelliChatMessage(input: string): Promise<ApiResponse<{ response?: string; output?: string; message?: string; data?: any; fallback?: boolean }>> {
     return this.request('/api/intellichat', {
       method: 'POST',
       body: JSON.stringify({ input }),
     });
+  }
+
+  async transcribeAudio(audioBlob: Blob): Promise<ApiResponse<{ text: string }>> {
+    const formData = new FormData();
+    formData.append('data', audioBlob, 'audio.webm');
+
+    const url = 'https://primary-production-70c40.up.railway.app/webhook/transcipt-audio-intellizapp';
+
+    try {
+      console.log('📤 Enviando áudio para transcrição...');
+
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('📥 Resposta da transcrição:', data);
+
+      // O webhook retorna { text: "texto transcrito", usage: {...}, type: "duration", seconds: 5 }
+      const transcribedText = data.text || '';
+
+      return {
+        success: true,
+        data: { text: transcribedText }
+      };
+    } catch (error) {
+      console.error('❌ Error transcribing audio:', error);
+      throw error;
+    }
   }
 
   // Health check
