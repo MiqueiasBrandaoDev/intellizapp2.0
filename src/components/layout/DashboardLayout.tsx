@@ -1,18 +1,19 @@
 import React, { useEffect } from 'react';
 import { Outlet, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  LayoutDashboard, 
-  Users, 
-  FileText, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Users,
+  FileText,
+  Settings,
   LogOut,
   Bot,
   Menu,
   X,
   Smartphone,
   Crown,
-  Shield
+  Shield,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -38,6 +39,7 @@ const DashboardLayout = () => {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, requiresActivePlan: true },
     { name: 'Grupos', href: '/dashboard/grupos', icon: Users, requiresActivePlan: true },
     { name: 'Resumos', href: '/dashboard/resumos', icon: FileText, requiresActivePlan: true },
+    { name: 'IntelliChat', href: '/dashboard/intellichat', icon: Sparkles, requiresActivePlan: true },
     { name: 'Conexão', href: '/dashboard/conexao', icon: Smartphone, requiresActivePlan: true },
     { name: 'Configurações', href: '/dashboard/settings', icon: Settings, requiresActivePlan: true },
     { name: 'Meu Plano', href: '/dashboard/meu-plano', icon: Crown, requiresActivePlan: false },

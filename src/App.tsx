@@ -18,6 +18,7 @@ import Resumos from "@/pages/Resumos";
 import Settings from "@/pages/Settings";
 import Conexao from "@/pages/Conexao";
 import MeuPlano from "@/pages/MeuPlano";
+import IntelliChat from "@/pages/IntelliChat";
 
 const queryClient = new QueryClient();
 
@@ -74,6 +75,11 @@ const App = () => (
               <Route path="resumos" element={
                 <ProtectedRoute requiresActivePlan={true}>
                   <Resumos />
+                </ProtectedRoute>
+              } />
+              <Route path="intellichat" element={
+                <ProtectedRoute requiresActivePlan={true}>
+                  <IntelliChat />
                 </ProtectedRoute>
               } />
               <Route path="conexao" element={

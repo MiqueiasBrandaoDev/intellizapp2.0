@@ -15,6 +15,7 @@ import dashboardRoutes from './routes/dashboard.js';
 import resumosRoutes from './routes/resumos.js';
 import healthRoutes from './routes/health.js';
 import adminRoutes from './routes/admin.js';
+import intellichatRoutes from './routes/intellichat.js';
 
 // Load environment variables
 dotenv.config();
@@ -79,6 +80,7 @@ app.use('/api/evolution', evolutionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/resumos', resumosRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/intellichat', intellichatRoutes);
 app.use('/', healthRoutes);
 
 // 404 handler
