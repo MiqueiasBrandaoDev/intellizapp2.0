@@ -37,7 +37,9 @@ export default function IntelliChat() {
   const sendMessageToAI = async (input: string) => {
     try {
       const result = await apiService.sendIntelliChatMessage(input);
-      return result.data?.response || 'Desculpe, não consegui processar sua solicitação.';
+      // O backend retorna { success: true, response: "...", data: {...} }
+      // que é encapsulado pelo ApiResponse como { success: true, data: { response: "...", data: {...} } }
+      return (result.data?.response as string) || 'Desculpe, não consegui processar sua solicitação.';
     } catch (error) {
       console.error('Error sending message to AI:', error);
       throw error;
