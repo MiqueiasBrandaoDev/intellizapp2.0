@@ -226,6 +226,14 @@ class ApiService {
     });
   }
 
+  // IntelliChat endpoints
+  async sendIntelliChatMessage(input: string): Promise<ApiResponse<{ response: string; data?: any; fallback?: boolean }>> {
+    return this.request('/api/intellichat', {
+      method: 'POST',
+      body: JSON.stringify({ input }),
+    });
+  }
+
   // Health check
   async health(): Promise<{ status: string; timestamp: string }> {
     return this.request('/health');

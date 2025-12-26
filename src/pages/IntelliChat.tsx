@@ -4,6 +4,7 @@ import { AIVoiceInput } from '@/components/ui/ai-voice-input';
 import { Card } from '@/components/ui/card';
 import { Loader2, Bot, User, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { apiService } from '@/services/api';
 
 interface Message {
   id: string;
@@ -35,22 +36,8 @@ export default function IntelliChat() {
 
   const sendMessageToAI = async (input: string) => {
     try {
-      // Chamada através do backend para evitar CORS
-      const response = await fetch('/api/intellichat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('intellizapp_token')}`,
-        },
-        body: JSON.stringify({ input }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get AI response');
-      }
-
-      const data = await response.json();
-      return data.response || data.output || 'Desculpe, não consegui processar sua solicitação.';
+      const result = await apiService.sendIntelliChatMessage(input);
+      return result.data?.response || 'Desculpe, não consegui processar sua solicitação.';
     } catch (error) {
       console.error('Error sending message to AI:', error);
       throw error;
