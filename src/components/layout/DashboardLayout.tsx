@@ -120,20 +120,21 @@ const DashboardLayout = () => {
               <Link
                 to={intelliChatItem.href}
                 className={`
-                  relative flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-all duration-300
+                  relative flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300
                   border-2
                   ${isActiveRoute(intelliChatItem.href)
-                    ? 'bg-primary/20 text-primary border-primary shadow-lg shadow-primary/50'
-                    : 'text-primary border-primary/30 hover:border-primary hover:bg-primary/10 hover:shadow-lg hover:shadow-primary/30'
+                    ? 'bg-primary/30 text-primary border-primary shadow-[0_0_20px_rgba(16,185,129,0.6)] scale-[1.02]'
+                    : 'text-primary border-primary/50 hover:border-primary hover:bg-primary/20 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:scale-[1.02]'
                   }
                 `}
                 onClick={() => setSidebarOpen(false)}
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent rounded-lg" />
-                <Sparkles className="mr-3 h-5 w-5 relative z-10" />
-                <span className="relative z-10 font-semibold">{intelliChatItem.name}</span>
-                <div className="ml-auto relative z-10">
-                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-xl" />
+                <Sparkles className="mr-3 h-5 w-5 relative z-10 animate-pulse" />
+                <span className="relative z-10 font-bold tracking-wide">{intelliChatItem.name}</span>
+                <div className="ml-auto relative z-10 flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: '0.3s' }} />
                 </div>
               </Link>
             </div>
