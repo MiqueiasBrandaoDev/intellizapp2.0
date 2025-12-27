@@ -54,7 +54,7 @@ const DashboardLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background cyber-grid">
+    <div className="min-h-screen bg-background cyber-grid overflow-hidden">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div 
@@ -184,7 +184,7 @@ const DashboardLayout = () => {
         </div>
 
         {/* Page content */}
-        <main className="p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] pb-safe-area-inset-bottom">
+        <main className="p-4 sm:p-6 lg:p-8 h-[calc(100vh-4rem)] overflow-y-auto pb-safe-area-inset-bottom">
           <Outlet />
         </main>
       </div>
