@@ -238,7 +238,11 @@ class ApiService {
     const formData = new FormData();
     formData.append('data', audioBlob, 'audio.webm');
 
-    const url = 'https://primary-production-70c40.up.railway.app/webhook/transcipt-audio-intellizapp';
+    const url = import.meta.env.VITE_TRANSCRIPTION_WEBHOOK_URL;
+
+    if (!url) {
+      throw new Error('VITE_TRANSCRIPTION_WEBHOOK_URL não configurada no .env');
+    }
 
     try {
       console.log('📤 Enviando áudio para transcrição...');

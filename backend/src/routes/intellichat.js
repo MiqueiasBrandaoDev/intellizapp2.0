@@ -19,7 +19,15 @@ router.post('/', authenticateToken, async (req, res) => {
     console.log('📤 Enviando mensagem para IA:', input);
     console.log('👤 ID do usuário:', req.user.id);
 
-    const webhookUrl = 'https://primary-production-70c40.up.railway.app/webhook/7e457a0e-515e-4b10-a7a5-0d57d8ff5fc4';
+    const webhookUrl = process.env.INTELLICHAT_WEBHOOK_URL;
+
+    if (!webhookUrl) {
+      return res.status(500).json({
+        success: false,
+        message: 'INTELLICHAT_WEBHOOK_URL não configurada no .env'
+      });
+    }
+
     console.log('🌐 URL do webhook:', webhookUrl);
 
     // Fazer chamada ao webhook Railway
