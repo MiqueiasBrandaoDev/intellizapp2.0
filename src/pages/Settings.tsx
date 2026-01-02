@@ -33,24 +33,24 @@ import {
 import { Separator } from '@/components/ui/separator';
 
 const Settings = () => {
-  const { user, updateUser } = useAuth();
+  const { profile, updateProfile } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
-  
+
   const [formData, setFormData] = useState({
-    nome: user?.nome || '',
-    email: user?.email || '',
-    instancia: user?.instancia || '',
-    horaResumo: user?.horaResumo || '09:00',
-    resumoDiaAnterior: Boolean(user?.resumoDiaAnterior),
-    transcricao_ativa: Boolean(user?.transcricao_ativa),
-    'transcricao-pvd': Boolean(user?.['transcricao-pvd']),
-    transcreverEu: Boolean(user?.transcreverEu),
-    ludico: Boolean(user?.ludico),
-    agendamento: Boolean(user?.agendamento),
-    ambiente: user?.ambiente || 'prod',
-    'key-openai': user?.['key-openai'] || ''
+    nome: profile?.nome || '',
+    email: profile?.email || '',
+    instancia: profile?.instancia || '',
+    horaResumo: profile?.horaResumo || '09:00',
+    resumoDiaAnterior: Boolean(profile?.resumoDiaAnterior),
+    transcricao_ativa: Boolean(profile?.transcricao_ativa),
+    'transcricao-pvd': Boolean(profile?.['transcricao-pvd']),
+    transcreverEu: Boolean(profile?.transcreverEu),
+    ludico: Boolean(profile?.ludico),
+    agendamento: Boolean(profile?.agendamento),
+    ambiente: profile?.ambiente || 'prod',
+    'key-openai': profile?.['key-openai'] || ''
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -59,31 +59,31 @@ const Settings = () => {
     confirmPassword: ''
   });
 
-  // Atualizar formData sempre que user mudar (dados frescos do banco)
+  // Atualizar formData sempre que profile mudar (dados frescos do banco)
   useEffect(() => {
-    if (user) {
+    if (profile) {
       console.log('🔄 Atualizando formData com dados frescos do usuário:', {
-        'transcricao-pvd': user['transcricao-pvd'],
-        ludico: user.ludico,
-        agendamento: user.agendamento
+        'transcricao-pvd': profile['transcricao-pvd'],
+        ludico: profile.ludico,
+        agendamento: profile.agendamento
       });
-      
+
       setFormData({
-        nome: user.nome || '',
-        email: user.email || '',
-        instancia: user.instancia || '',
-        horaResumo: user.horaResumo || '09:00',
-        resumoDiaAnterior: Boolean(user.resumoDiaAnterior),
-        transcricao_ativa: Boolean(user.transcricao_ativa),
-        'transcricao-pvd': Boolean(user['transcricao-pvd']),
-        transcreverEu: Boolean(user.transcreverEu),
-        ludico: Boolean(user.ludico),
-        agendamento: Boolean(user.agendamento),
-        ambiente: user.ambiente || 'prod',
-        'key-openai': user['key-openai'] || ''
+        nome: profile.nome || '',
+        email: profile.email || '',
+        instancia: profile.instancia || '',
+        horaResumo: profile.horaResumo || '09:00',
+        resumoDiaAnterior: Boolean(profile.resumoDiaAnterior),
+        transcricao_ativa: Boolean(profile.transcricao_ativa),
+        'transcricao-pvd': Boolean(profile['transcricao-pvd']),
+        transcreverEu: Boolean(profile.transcreverEu),
+        ludico: Boolean(profile.ludico),
+        agendamento: Boolean(profile.agendamento),
+        ambiente: profile.ambiente || 'prod',
+        'key-openai': profile['key-openai'] || ''
       });
     }
-  }, [user]);
+  }, [profile]);
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
@@ -102,7 +102,7 @@ const Settings = () => {
   const handleSaveProfile = async () => {
     setLoading(true);
     try {
-      await updateUser(formData);
+      await updateProfile(formData);
       toast({
         title: "Perfil atualizado",
         description: "Suas configurações foram salvas com sucesso."
@@ -418,20 +418,20 @@ const Settings = () => {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Plano</span>
-                <Badge 
-                  className={user?.plano_ativo 
-                    ? "bg-green-500/20 text-green-400 border-green-500/30" 
+                <Badge
+                  className={profile?.plano_ativo
+                    ? "bg-green-500/20 text-green-400 border-green-500/30"
                     : "bg-red-500/20 text-red-400 border-red-500/30"
                   }
                 >
-                  {user?.plano_ativo ? 'Ativo' : 'Inativo'}
+                  {profile?.plano_ativo ? 'Ativo' : 'Inativo'}
                 </Badge>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Criado em</span>
                 <span className="text-sm text-muted-foreground">
-                  {user?.criado_em ? new Date(user.criado_em).toLocaleDateString('pt-BR') : '-'}
+                  {profile?.criado_em ? new Date(profile.criado_em).toLocaleDateString('pt-BR') : '-'}
                 </span>
               </div>
             </CardContent>

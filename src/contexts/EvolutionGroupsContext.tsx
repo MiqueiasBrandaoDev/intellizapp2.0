@@ -29,12 +29,12 @@ export const useEvolutionGroupsContext = () => {
 };
 
 export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { profile, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const [shouldLoad, setShouldLoad] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
-  
-  const instanceName = user?.nome || '';
+
+  const instanceName = profile?.nome || '';
 
   // Query para carregar grupos da Evolution API
   const {
@@ -43,10 +43,10 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
     error,
     refetch
   } = useQuery({
-    queryKey: ['evolutionGroups', instanceName, user?.id],
-    queryFn: () => 
-      user && instanceName ? apiService.getEvolutionGroups(instanceName, user.id) : Promise.resolve(null),
-    enabled: !!user?.id && !!instanceName && instanceName.trim() !== '' && (shouldLoad || isAuthenticated),
+    queryKey: ['evolutionGroups', instanceName, profile?.id],
+    queryFn: () =>
+      profile && instanceName ? apiService.getEvolutionGroups(instanceName, profile.id) : Promise.resolve(null),
+    enabled: !!profile?.id && !!instanceName && instanceName.trim() !== '' && (shouldLoad || isAuthenticated),
     staleTime: 5 * 60 * 1000, // 5 minutes
     cacheTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: true, // Recarregar quando a página ganhar foco
@@ -79,19 +79,19 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
 
   // Função para pré-carregar grupos (chamada no login)
   const preloadGroups = (instanceName: string) => {
-    if (instanceName && user?.id) {
+    if (instanceName && profile?.id) {
       setShouldLoad(true);
       // Força o fetch imediatamente
-      queryClient.invalidateQueries({ queryKey: ['evolutionGroups', instanceName, user.id] });
+      queryClient.invalidateQueries({ queryKey: ['evolutionGroups', instanceName, profile.id] });
     }
   };
 
   // Carregar grupos automaticamente quando o usuário estiver autenticado
   useEffect(() => {
-    if (isAuthenticated && user && instanceName) {
+    if (isAuthenticated && profile && instanceName) {
       setShouldLoad(true);
     }
-  }, [isAuthenticated, user, instanceName]);
+  }, [isAuthenticated, profile, instanceName]);
 
   // Escutar evento de login para começar carregamento imediatamente
   useEffect(() => {

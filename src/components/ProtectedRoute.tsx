@@ -10,11 +10,11 @@ interface ProtectedRouteProps {
   requiresActivePlan?: boolean;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  children, 
-  requiresActivePlan = false 
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  requiresActivePlan = false
 }) => {
-  const { user, isAuthenticated, loading } = useAuth();
+  const { profile, isAuthenticated, loading } = useAuth();
 
   // Show loading spinner while checking authentication
   if (loading) {
@@ -33,8 +33,40 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/auth/login" replace />;
   }
 
+  // Se o usuário está autenticado mas não tem perfil (tabela usuarios pode não existir)
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <Card className="cyber-card max-w-md w-full">
+          <CardHeader className="text-center">
+            <div className="bg-yellow-500/10 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+              <Lock className="h-8 w-8 text-yellow-500" />
+            </div>
+            <CardTitle className="text-xl">Perfil não encontrado</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-center">
+            <p className="text-muted-foreground">
+              Seu perfil ainda não foi configurado no sistema.
+              Por favor, contate o administrador ou execute o setup do banco de dados.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Auth ID: {profile === null ? 'Verificando...' : 'N/A'}
+            </p>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => window.location.reload()}
+            >
+              Tentar Novamente
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Se a rota requer plano ativo e o usuário não tem
-  if (requiresActivePlan && user?.plano_ativo !== 1) {
+  if (requiresActivePlan && !profile?.plano_ativo) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <Card className="cyber-card max-w-md w-full">

@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/dialog';
 
 const Resumos = () => {
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');

@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { profile } = useAuth();
   
   // Fetch real data from API
   const { data: stats, isLoading: statsLoading, error: statsError } = useDashboardStats();
@@ -48,7 +48,7 @@ const Dashboard = () => {
           Dashboard
         </h1>
         <p className="text-muted-foreground">
-          Bem-vindo de volta, {user?.nome}! Aqui está um resumo da sua conta.
+          Bem-vindo de volta, {profile?.nome}! Aqui está um resumo da sua conta.
         </p>
       </div>
 
@@ -291,13 +291,13 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
             <div className="flex items-center space-x-3">
               <div className={`
-                w-3 h-3 rounded-full 
-                ${user?.plano_ativo ? 'bg-green-500' : 'bg-red-500'}
+                w-3 h-3 rounded-full
+                ${profile?.plano_ativo ? 'bg-green-500' : 'bg-red-500'}
               `} />
               <div>
                 <p className="text-sm font-medium">Plano</p>
                 <p className="text-xs text-muted-foreground">
-                  {user?.plano_ativo ? 'Ativo' : 'Inativo'}
+                  {profile?.plano_ativo ? 'Ativo' : 'Inativo'}
                 </p>
               </div>
             </div>
@@ -307,7 +307,7 @@ const Dashboard = () => {
               <div>
                 <p className="text-sm font-medium">Instância</p>
                 <p className="text-xs text-muted-foreground">
-                  {user?.instancia}
+                  {profile?.instancia || 'Não configurada'}
                 </p>
               </div>
             </div>
@@ -317,7 +317,7 @@ const Dashboard = () => {
               <div>
                 <p className="text-sm font-medium">Próximo Resumo</p>
                 <p className="text-xs text-muted-foreground">
-                  {user?.horaResumo}
+                  {profile?.horaResumo || '09:00'}
                 </p>
               </div>
             </div>

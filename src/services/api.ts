@@ -1,12 +1,12 @@
-import { 
-  Usuario, 
-  Grupo, 
-  Mensagem, 
+import {
+  Usuario,
+  Grupo,
+  Mensagem,
   Resumo,
   ResumoWithGrupo,
-  CreateUsuarioData, 
-  CreateGrupoData, 
-  CreateMensagemData, 
+  CreateUsuarioData,
+  CreateGrupoData,
+  CreateMensagemData,
   CreateResumoData,
   UpdateUsuarioData,
   DashboardStats,
@@ -15,23 +15,29 @@ import {
   PaginatedResponse,
   GrupoWithMensagens
 } from '@/types/database';
+import { supabase } from '@/lib/supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === 'production' ? '' : 'http://localhost:3001');
 
 class ApiService {
+  private async getToken(): Promise<string | null> {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  }
+
   private async request<T>(
-    endpoint: string, 
+    endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    const token = localStorage.getItem('intellizapp_token');
-    
+    const token = await this.getToken();
+
     // Set default timeout to 3 minutes for Evolution API calls
     const controller = new AbortController();
     const isEvolutionCall = endpoint.includes('/evolution/');
     const timeoutMs = isEvolutionCall ? 180000 : 30000; // 3 minutes for Evolution, 30s for others
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
+
     const config: RequestInit = {
       ...options,
       signal: controller.signal,

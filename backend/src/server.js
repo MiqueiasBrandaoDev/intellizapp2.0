@@ -112,9 +112,9 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`\n🚀 InteliZap API running on port ${PORT}`);
       console.log(`📋 Health check: http://localhost:${PORT}/health`);
-      console.log(`🌐 CORS enabled for: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
-      console.log(`📊 Environment: ${process.env.VITE_APP_ENVIRONMENT || 'development'}`);
-      console.log(`🔒 JWT expires in: ${process.env.JWT_EXPIRES_IN || '7d'}`);
+      console.log(`🌐 CORS enabled for: ${process.env.CORS_ORIGIN || 'all origins'}`);
+      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🗄️  Database: Supabase (${process.env.SUPABASE_URL})`);
       console.log('\n📚 Available endpoints:');
       console.log('  POST /api/auth/login');
       console.log('  POST /api/auth/register');

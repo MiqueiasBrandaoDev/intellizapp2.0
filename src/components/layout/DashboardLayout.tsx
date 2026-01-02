@@ -19,17 +19,17 @@ import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 
 const DashboardLayout = () => {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { profile, signOut, isAuthenticated } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Redirecionar usuários sem plano ativo para página Meu Plano
   useEffect(() => {
-    if (user && !user.plano_ativo && location.pathname !== '/dashboard/meu-plano') {
+    if (profile && !profile.plano_ativo && location.pathname !== '/dashboard/meu-plano') {
       navigate('/dashboard/meu-plano', { replace: true });
     }
-  }, [user, location.pathname, navigate]);
+  }, [profile, location.pathname, navigate]);
 
   if (!isAuthenticated) {
     return <Navigate to="/auth/login" replace />;
@@ -89,7 +89,7 @@ const DashboardLayout = () => {
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-2">
             {navigation
-              .filter(item => !item.requiresActivePlan || user?.plano_ativo)
+              .filter(item => !item.requiresActivePlan || profile?.plano_ativo)
               .map((item) => {
                 const Icon = item.icon;
                 const isActive = isActiveRoute(item.href);
@@ -115,7 +115,7 @@ const DashboardLayout = () => {
           </nav>
 
           {/* IntelliChat - Destaque Especial */}
-          {user?.plano_ativo && (
+          {profile?.plano_ativo && (
             <div className="px-4 pb-4">
               <Link
                 to={intelliChatItem.href}
@@ -143,20 +143,20 @@ const DashboardLayout = () => {
           {/* User info and logout */}
           <div className="border-t border-border p-4">
             <div className="mb-4">
-              <p className="text-sm font-medium text-foreground">{user?.nome}</p>
-              <p className="text-xs text-muted-foreground">{user?.email}</p>
+              <p className="text-sm font-medium text-foreground">{profile?.nome}</p>
+              <p className="text-xs text-muted-foreground">{profile?.email}</p>
               <div className="mt-2 flex items-center">
                 <div className={`
                   w-2 h-2 rounded-full mr-2
-                  ${user?.plano_ativo ? 'bg-green-500' : 'bg-red-500'}
+                  ${profile?.plano_ativo ? 'bg-green-500' : 'bg-red-500'}
                 `} />
                 <span className="text-xs text-muted-foreground">
-                  {user?.plano_ativo ? 'Plano Ativo' : 'Plano Inativo'}
+                  {profile?.plano_ativo ? 'Plano Ativo' : 'Plano Inativo'}
                 </span>
               </div>
             </div>
             <Button
-              onClick={logout}
+              onClick={signOut}
               variant="outline"
               className="w-full justify-start"
             >

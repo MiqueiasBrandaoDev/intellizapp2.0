@@ -35,7 +35,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const Grupos = () => {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -242,7 +242,7 @@ const Grupos = () => {
     if (!user || !selectedEvolutionGroup) return;
 
     // Verificar limite de grupos antes de adicionar
-    const maxGrupos = user.max_grupos || 0;
+    const maxGrupos = profile.max_grupos || 0;
     const gruposAtuais = grupos.length;
 
     if (gruposAtuais >= maxGrupos) {
@@ -257,7 +257,7 @@ const Grupos = () => {
     createGrupo({
       nome_grupo: selectedEvolutionGroup.nome_grupo,
       grupo_id_externo: selectedEvolutionGroup.grupo_id_externo,
-      usuario_id: user.id,
+      usuario_id: profile.id,
       ativo: true
     }, {
       onSuccess: () => {
@@ -348,19 +348,19 @@ const Grupos = () => {
           </p>
           <div className="flex items-center gap-2 mt-2">
             <span className="text-sm text-muted-foreground">
-              {grupos.length} de {user?.max_grupos || 0} grupos utilizados
+              {grupos.length} de {profile?.max_grupos || 0} grupos utilizados
             </span>
             <div className="flex-1 bg-muted rounded-full h-2 max-w-32">
               <div 
                 className={`h-2 rounded-full transition-all ${
-                  grupos.length >= (user?.max_grupos || 0) 
+                  grupos.length >= (profile?.max_grupos || 0) 
                     ? 'bg-red-500' 
-                    : grupos.length >= (user?.max_grupos || 0) * 0.8 
+                    : grupos.length >= (profile?.max_grupos || 0) * 0.8 
                       ? 'bg-yellow-500' 
                       : 'bg-green-500'
                 }`}
                 style={{ 
-                  width: `${Math.min(100, (grupos.length / (user?.max_grupos || 1)) * 100)}%` 
+                  width: `${Math.min(100, (grupos.length / (profile?.max_grupos || 1)) * 100)}%` 
                 }}
               />
             </div>
@@ -391,11 +391,11 @@ const Grupos = () => {
               <Button 
                 variant="outline"
                 className="cyber-button-outline"
-                disabled={grupos.length >= (user?.max_grupos || 0)}
-                title={grupos.length >= (user?.max_grupos || 0) ? 'Limite de grupos atingido' : ''}
+                disabled={grupos.length >= (profile?.max_grupos || 0)}
+                title={grupos.length >= (profile?.max_grupos || 0) ? 'Limite de grupos atingido' : ''}
               >
                 <Plus className="mr-2 h-4 w-4" />
-                {grupos.length >= (user?.max_grupos || 0) ? 'Limite Atingido' : 'Adicionar Grupo'}
+                {grupos.length >= (profile?.max_grupos || 0) ? 'Limite Atingido' : 'Adicionar Grupo'}
               </Button>
             </DialogTrigger>
             <DialogContent className="cyber-card max-w-2xl max-h-[85vh] overflow-y-auto">

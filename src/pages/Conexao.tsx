@@ -26,7 +26,7 @@ interface ConnectionStatus {
 }
 
 const Conexao = () => {
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const { toast } = useToast();
   const [status, setStatus] = useState<ConnectionStatus>({
     connected: false,
@@ -40,16 +40,16 @@ const Conexao = () => {
 
   // Load user instance from database on component mount
   useEffect(() => {
-    if (user?.nome) {
+    if (profile?.nome) {
       setStatus(prev => ({
         ...prev,
-        instanceName: user.nome, // Usando o nome do usuário como nome da instância
+        instanceName: profile.nome, // Usando o nome do usuário como nome da instância
         loading: true // Mantém loading enquanto verifica status
       }));
       // Check initial connection status
-      checkConnectionStatus(user.nome);
+      checkConnectionStatus(profile.nome);
     }
-  }, [user]);
+  }, [profile]);
 
   // Timer management
   useEffect(() => {

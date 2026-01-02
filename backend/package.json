@@ -1,6 +1,6 @@
 {
   "name": "intellizap-backend",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Backend API for InteliZap WhatsApp management system",
   "main": "src/server.js",
   "type": "module",
@@ -13,11 +13,12 @@
     "whatsapp",
     "api",
     "nodejs",
-    "mysql"
+    "supabase"
   ],
   "author": "InteliZap Team",
   "license": "ISC",
   "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -25,10 +26,10 @@
     "express-rate-limit": "^7.1.5",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mysql2": "^3.6.5",
     "node-fetch": "^2.7.0"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "nodemon": "^3.0.2"
   }
 }
