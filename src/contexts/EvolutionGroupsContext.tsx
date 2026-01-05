@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,6 +16,8 @@ interface EvolutionGroupsContextType {
   refetch: () => void;
   preloadGroups: (instanceName: string) => void;
   isRetrying: boolean;
+  isConnected: boolean;
+  checkConnection: () => Promise<boolean>;
 }
 
 const EvolutionGroupsContext = createContext<EvolutionGroupsContextType | undefined>(undefined);
@@ -33,32 +35,79 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
   const queryClient = useQueryClient();
   const [shouldLoad, setShouldLoad] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
 
-  const instanceName = profile?.nome || '';
+  const instanceName = profile?.instancia || profile?.nome || '';
+
+  // Função para verificar conexão com WhatsApp
+  const checkConnection = useCallback(async (): Promise<boolean> => {
+    if (!instanceName) return false;
+
+    try {
+      const response = await apiService.getEvolutionStatus(instanceName);
+      const connected = response.connected || response.state === 'open';
+      setIsConnected(connected);
+
+      // Se conectou, carrega os grupos automaticamente
+      if (connected && profile?.id) {
+        console.log('✅ WhatsApp conectado! Carregando grupos automaticamente...');
+        setShouldLoad(true);
+        // Dispara evento para outros componentes
+        window.dispatchEvent(new CustomEvent('whatsappConnected', {
+          detail: { instanceName, connected: true }
+        }));
+      }
+
+      return connected;
+    } catch (error) {
+      console.error('Erro ao verificar conexão:', error);
+      setIsConnected(false);
+      return false;
+    }
+  }, [instanceName, profile?.id]);
+
+  // Verificar conexão automaticamente ao iniciar
+  useEffect(() => {
+    if (isAuthenticated && instanceName && profile?.id) {
+      // Verifica conexão imediatamente
+      checkConnection();
+
+      // Configura intervalo para verificar conexão periodicamente (a cada 30s)
+      const connectionCheckInterval = setInterval(() => {
+        if (!isConnected) {
+          checkConnection();
+        }
+      }, 30000);
+
+      return () => clearInterval(connectionCheckInterval);
+    }
+  }, [isAuthenticated, instanceName, profile?.id, checkConnection, isConnected]);
 
   // Query para carregar grupos da Evolution API
   const {
     data: evolutionGroupsResponse,
     isLoading,
     error,
-    refetch
+    refetch,
+    isSuccess,
+    isError
   } = useQuery({
     queryKey: ['evolutionGroups', instanceName, profile?.id],
     queryFn: () =>
       profile && instanceName ? apiService.getEvolutionGroups(instanceName, profile.id) : Promise.resolve(null),
     enabled: !!profile?.id && !!instanceName && instanceName.trim() !== '' && (shouldLoad || isAuthenticated),
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes (renamed from cacheTime in v5)
     refetchOnWindowFocus: true, // Recarregar quando a página ganhar foco
     refetchOnMount: true, // Recarregar quando o componente for montado
     retry: (failureCount, error: any) => {
       // Retry até 2 vezes se for erro de timeout ou 500
       if (failureCount < 2) {
-        const isTimeoutError = error?.message?.includes('timeout') || 
+        const isTimeoutError = error?.message?.includes('timeout') ||
                               error?.message?.includes('demorando') ||
                               error?.message?.includes('WhatsApp está demorando');
         const is500Error = error?.message?.includes('500') || error?.message?.includes('Internal Server Error');
-        
+
         if (isTimeoutError || is500Error) {
           console.log(`🔄 Retry ${failureCount + 1}/2 for Evolution Groups due to timeout/500 error`);
           setIsRetrying(true);
@@ -69,13 +118,14 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
       return false;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff, max 30s
-    onSuccess: () => {
-      setIsRetrying(false);
-    },
-    onError: () => {
+  });
+
+  // Handle success/error states (onSuccess/onError removed in React Query v5)
+  useEffect(() => {
+    if (isSuccess || isError) {
       setIsRetrying(false);
     }
-  });
+  }, [isSuccess, isError]);
 
   // Função para pré-carregar grupos (chamada no login)
   const preloadGroups = (instanceName: string) => {
@@ -125,6 +175,8 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
     refetch,
     preloadGroups,
     isRetrying,
+    isConnected,
+    checkConnection,
   };
 
   return (

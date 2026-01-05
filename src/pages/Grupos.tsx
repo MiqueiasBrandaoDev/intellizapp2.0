@@ -35,7 +35,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const Grupos = () => {
   const { toast } = useToast();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -45,7 +45,7 @@ const Grupos = () => {
     participantes: number;
   } | null>(null);
   const [evolutionSearchTerm, setEvolutionSearchTerm] = useState('');
-  const [updatingGroups, setUpdatingGroups] = useState<Set<number>>(new Set());
+  const [updatingGroups, setUpdatingGroups] = useState<Set<string>>(new Set());
   
   const {
     grupos,
@@ -66,7 +66,7 @@ const Grupos = () => {
     if (!isLoading && !isUpdating) {
       setUpdatingGroups(new Set());
     }
-  }, [grupos, isLoading, isUpdating]);
+  }, [isLoading, isUpdating]);
 
   // Usar contexto global para grupos da Evolution API
   const {
@@ -86,7 +86,7 @@ const Grupos = () => {
     group.nome_grupo?.toLowerCase().includes(evolutionSearchTerm.toLowerCase()) || false
   );
 
-  const handleToggleActive = async (id: number, currentStatus: boolean) => {
+  const handleToggleActive = async (id: string, currentStatus: boolean) => {
     // Evitar duplo clique
     if (updatingGroups.has(id)) return;
     
@@ -124,7 +124,7 @@ const Grupos = () => {
     }
   };
 
-  const handleRemoveGroup = async (id: number) => {
+  const handleRemoveGroup = async (id: string) => {
     try {
       deleteGrupo(id);
       
@@ -141,7 +141,7 @@ const Grupos = () => {
     }
   };
 
-  const handleToggleTranscricao = async (id: number, currentStatus: boolean) => {
+  const handleToggleTranscricao = async (id: string, currentStatus: boolean) => {
     // Evitar duplo clique
     if (updatingGroups.has(id)) return;
     
@@ -179,7 +179,7 @@ const Grupos = () => {
     }
   };
 
-  const handleToggleLudico = async (id: number, currentStatus: boolean) => {
+  const handleToggleLudico = async (id: string, currentStatus: boolean) => {
     // Evitar duplo clique
     if (updatingGroups.has(id)) return;
     

@@ -21,15 +21,16 @@ export interface Usuario {
 }
 
 export interface Grupo {
-  id: number;
+  id: string;
   nome_grupo: string | null;
   grupo_id_externo: string | null;
-  usuario_id: number | null;
+  usuario_id: string | null;
   ativo: boolean;
   transcricao_ativa: boolean;
   resumo_ativo: boolean;
   ludico: boolean;
   criado_em: Date;
+  updated_at?: Date;
 }
 
 export interface GrupoEvento {
@@ -69,7 +70,7 @@ export interface CreateUsuarioData {
 export interface CreateGrupoData {
   nome_grupo: string;
   grupo_id_externo?: string;
-  usuario_id: number;
+  usuario_id: string;
   ativo?: boolean;
   transcricao_ativa?: boolean;
   resumo_ativo?: boolean;

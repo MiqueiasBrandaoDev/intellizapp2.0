@@ -117,47 +117,98 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    let isMounted = true;
+    let initialLoadDone = false;
+
     // Get initial session
     const initializeAuth = async () => {
       console.log('🚀 Initializing auth...');
       try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        // Primeiro, tenta recuperar a sessão existente
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.error('❌ Error getting session:', sessionError);
+          // Se houver erro, tenta refresh
+          const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
+          if (refreshedSession && isMounted) {
+            console.log('🔄 Session refreshed successfully');
+            setSession(refreshedSession);
+            setUser(refreshedSession.user);
+            const userProfile = await fetchProfile(refreshedSession.user.id);
+            setProfile(userProfile);
+          }
+          if (isMounted) {
+            setLoading(false);
+            initialLoadDone = true;
+          }
+          return;
+        }
+
         console.log('📋 Current session:', currentSession ? 'exists' : 'null');
 
-        if (currentSession) {
+        if (currentSession && isMounted) {
+          // Verifica se o token está expirado
+          const tokenExp = currentSession.expires_at;
+          const now = Math.floor(Date.now() / 1000);
+
+          if (tokenExp && tokenExp < now) {
+            console.log('⏰ Token expired, refreshing...');
+            const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
+            if (refreshedSession && isMounted) {
+              setSession(refreshedSession);
+              setUser(refreshedSession.user);
+              const userProfile = await fetchProfile(refreshedSession.user.id);
+              setProfile(userProfile);
+            }
+            if (isMounted) {
+              setLoading(false);
+              initialLoadDone = true;
+            }
+            return;
+          }
+
           setSession(currentSession);
           setUser(currentSession.user);
 
           // Fetch user profile using auth_id
+          console.log('📂 Fetching profile...');
           const userProfile = await fetchProfile(currentSession.user.id);
-          if (userProfile) {
-            setProfile(userProfile);
-          } else {
-            // Create profile if doesn't exist (for OAuth users)
-            console.log('⚠️ No profile found, attempting to create...');
-            const newProfile = await createProfile(
-              currentSession.user.id,
-              currentSession.user.email || '',
-              currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.name || '',
-              currentSession.user.user_metadata?.avatar_url
-            );
-            if (newProfile) {
-              setProfile(newProfile);
-            } else {
-              console.warn('⚠️ Could not create profile - table might not exist yet');
-            }
-          }
+          console.log('📂 Profile result:', userProfile ? 'found' : 'not found');
 
-          // Dispatch event for other components
-          window.dispatchEvent(new CustomEvent('userLoggedIn', {
-            detail: { user: currentSession.user }
-          }));
+          if (isMounted) {
+            if (userProfile) {
+              setProfile(userProfile);
+            } else {
+              // Create profile if doesn't exist (for OAuth users)
+              console.log('⚠️ No profile found, attempting to create...');
+              const newProfile = await createProfile(
+                currentSession.user.id,
+                currentSession.user.email || '',
+                currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.name || '',
+                currentSession.user.user_metadata?.avatar_url
+              );
+              if (newProfile) {
+                setProfile(newProfile);
+              } else {
+                console.warn('⚠️ Could not create profile - table might not exist yet');
+              }
+            }
+
+            // Dispatch event for other components
+            window.dispatchEvent(new CustomEvent('userLoggedIn', {
+              detail: { user: currentSession.user }
+            }));
+          }
         }
       } catch (error) {
         console.error('❌ Error initializing auth:', error);
       } finally {
-        console.log('✅ Auth initialization complete, setting loading to false');
-        setLoading(false);
+        if (isMounted) {
+          console.log('✅ Auth initialization complete, setting loading to false');
+          setLoading(false);
+          initialLoadDone = true;
+        }
       }
     };
 
@@ -165,7 +216,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      console.log('Auth state changed:', event);
+      console.log('🔄 Auth state changed:', event, '| initialLoadDone:', initialLoadDone);
+
+      // Skip if this is the initial SIGNED_IN event and we're still doing initial load
+      // This prevents race conditions with initializeAuth
+      if (!initialLoadDone && event === 'SIGNED_IN') {
+        console.log('⏭️ Skipping SIGNED_IN event during initial load');
+        return;
+      }
+
+      if (!isMounted) return;
 
       setSession(newSession);
       setUser(newSession?.user ?? null);
@@ -183,19 +243,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           );
         }
 
-        setProfile(userProfile);
+        if (isMounted) {
+          setProfile(userProfile);
 
-        window.dispatchEvent(new CustomEvent('userLoggedIn', {
-          detail: { user: newSession.user }
-        }));
+          window.dispatchEvent(new CustomEvent('userLoggedIn', {
+            detail: { user: newSession.user }
+          }));
+        }
       } else {
-        setProfile(null);
+        if (isMounted) {
+          setProfile(null);
+        }
       }
 
-      setLoading(false);
+      if (isMounted) {
+        setLoading(false);
+      }
     });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);

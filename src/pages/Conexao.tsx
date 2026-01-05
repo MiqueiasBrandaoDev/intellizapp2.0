@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  Smartphone, 
-  QrCode, 
-  CheckCircle, 
+import { useEvolutionGroupsContext } from '@/contexts/EvolutionGroupsContext';
+import {
+  Smartphone,
+  QrCode,
+  CheckCircle,
   AlertCircle,
   Loader2,
   RefreshCw,
@@ -26,8 +27,9 @@ interface ConnectionStatus {
 }
 
 const Conexao = () => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { toast } = useToast();
+  const { checkConnection: checkEvolutionConnection, isLoading: groupsLoading } = useEvolutionGroupsContext();
   const [status, setStatus] = useState<ConnectionStatus>({
     connected: false,
     instanceName: null,
@@ -40,14 +42,22 @@ const Conexao = () => {
 
   // Load user instance from database on component mount
   useEffect(() => {
-    if (profile?.nome) {
+    if (profile?.instancia || profile?.nome) {
+      const instanceName = profile.instancia || profile.nome;
       setStatus(prev => ({
         ...prev,
-        instanceName: profile.nome, // Usando o nome do usuário como nome da instância
+        instanceName, // Usando instancia ou nome do usuário como nome da instância
         loading: true // Mantém loading enquanto verifica status
       }));
-      // Check initial connection status
-      checkConnectionStatus(profile.nome);
+      // Check initial connection status (sem toast na carga inicial)
+      checkConnectionStatus(instanceName, false);
+    } else if (profile === null) {
+      // Profile carregou mas está vazio
+      setStatus(prev => ({
+        ...prev,
+        loading: false,
+        error: 'Perfil não encontrado. Configure seu perfil primeiro.'
+      }));
     }
   }, [profile]);
 
@@ -81,7 +91,7 @@ const Conexao = () => {
   }, [status.qrCode, status.connected, timerInterval]);
 
   const generateQRCode = async () => {
-    if (!status.instanceName) {
+    if (!status.instanceName || !user) {
       toast({
         variant: "destructive",
         title: "Erro",
@@ -94,7 +104,7 @@ const Conexao = () => {
 
     try {
       // Conectar WhatsApp usando instância do usuário
-      const data = await apiService.connectEvolution(status.instanceName, user!.id);
+      const data = await apiService.connectEvolution(status.instanceName, user.id);
 
       // Check if already connected
       if (data.instance && data.instance.state === 'open') {
@@ -146,14 +156,17 @@ const Conexao = () => {
     }
   };
 
-  const checkConnectionStatus = async (instanceName?: string) => {
+  const checkConnectionStatus = async (instanceName?: string, showToast: boolean = true) => {
     const instance = instanceName || status.instanceName;
-    if (!instance) return;
+    if (!instance) {
+      setStatus(prev => ({ ...prev, loading: false }));
+      return;
+    }
 
     try {
       const data = await apiService.getEvolutionStatus(instance);
       console.log('📱 Status response:', data);
-      
+
       if (data.connected || data.state === 'open') {
         setStatus(prev => ({
           ...prev,
@@ -162,16 +175,21 @@ const Conexao = () => {
           error: null,
           loading: false
         }));
-        
+
         if (timerInterval) {
           clearInterval(timerInterval);
           setTimerInterval(null);
         }
-        
-        toast({
-          title: "WhatsApp conectado!",
-          description: "Sua instância já está ativa e conectada."
-        });
+
+        // Dispara verificação de conexão no contexto para carregar grupos
+        checkEvolutionConnection();
+
+        if (showToast) {
+          toast({
+            title: "WhatsApp conectado!",
+            description: "Sua instância já está ativa e conectada. Carregando grupos..."
+          });
+        }
       } else {
         setStatus(prev => ({
           ...prev,
@@ -184,8 +202,8 @@ const Conexao = () => {
       setStatus(prev => ({
         ...prev,
         connected: false,
-        loading: false,
-        error: 'Erro ao verificar status da conexão'
+        loading: false
+        // Não mostra erro para não confundir o usuário
       }));
     }
   };
@@ -223,7 +241,9 @@ const Conexao = () => {
   // Auto-check connection status when QR is displayed
   useEffect(() => {
     if (status.qrCode && !status.connected) {
-      const statusCheckInterval = setInterval(checkConnectionStatus, 3000);
+      const statusCheckInterval = setInterval(() => {
+        checkConnectionStatus(undefined, true); // Mostra toast quando conectar via QR
+      }, 3000);
       return () => clearInterval(statusCheckInterval);
     }
   }, [status.qrCode, status.connected, status.instanceName]);
@@ -383,6 +403,14 @@ const Conexao = () => {
                   <p>✓ Pronto para enviar mensagens</p>
                   <p>✓ Integração ativa</p>
                   <p>✓ Recebendo mensagens</p>
+                  {groupsLoading ? (
+                    <p className="flex items-center justify-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Carregando grupos em background...
+                    </p>
+                  ) : (
+                    <p>✓ Grupos carregados</p>
+                  )}
                 </div>
               </div>
 

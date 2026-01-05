@@ -30,7 +30,7 @@ export const useGrupos = () => {
   });
 
   const updateGrupoMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<CreateGrupoData> }) =>
+    mutationFn: ({ id, data }: { id: string; data: Partial<CreateGrupoData> }) =>
       apiService.updateGrupo(id, data),
     onMutate: async ({ id, data }) => {
       // Cancelar queries em execução para evitar conflitos
@@ -68,7 +68,7 @@ export const useGrupos = () => {
   });
 
   const deleteGrupoMutation = useMutation({
-    mutationFn: (id: number) => apiService.deleteGrupo(id),
+    mutationFn: (id: string) => apiService.deleteGrupo(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['grupos'] });
     },
@@ -92,7 +92,7 @@ export const useGrupos = () => {
   };
 };
 
-export const useGrupo = (id: number) => {
+export const useGrupo = (id: string) => {
   const {
     data: grupoResponse,
     isLoading,

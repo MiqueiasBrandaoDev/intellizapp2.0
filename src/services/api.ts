@@ -113,11 +113,11 @@ class ApiService {
   }
 
   // Grupos endpoints
-  async getGrupos(usuarioId: number, page: number = 1, limit: number = 50): Promise<PaginatedResponse<Grupo>> {
+  async getGrupos(usuarioId: string, page: number = 1, limit: number = 50): Promise<PaginatedResponse<Grupo>> {
     return this.request(`/api/grupos?usuario_id=${usuarioId}&page=${page}&limit=${limit}`);
   }
 
-  async getGrupo(id: number): Promise<ApiResponse<GrupoWithMensagens>> {
+  async getGrupo(id: string): Promise<ApiResponse<GrupoWithMensagens>> {
     return this.request(`/api/grupos/${id}`);
   }
 
@@ -128,14 +128,14 @@ class ApiService {
     });
   }
 
-  async updateGrupo(id: number, data: Partial<CreateGrupoData>): Promise<ApiResponse<Grupo>> {
+  async updateGrupo(id: string, data: Partial<CreateGrupoData>): Promise<ApiResponse<Grupo>> {
     return this.request(`/api/grupos/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
-  async deleteGrupo(id: number): Promise<ApiResponse<void>> {
+  async deleteGrupo(id: string): Promise<ApiResponse<void>> {
     return this.request(`/api/grupos/${id}`, {
       method: 'DELETE',
     });
@@ -211,7 +211,7 @@ class ApiService {
   }
 
   // Evolution API endpoints
-  async getEvolutionGroups(instanceName: string, userId: number): Promise<ApiResponse<any[]>> {
+  async getEvolutionGroups(instanceName: string, userId: string): Promise<ApiResponse<any[]>> {
     return this.request(`/api/evolution/groups/${instanceName}?userId=${userId}`);
   }
 
@@ -219,7 +219,7 @@ class ApiService {
     return this.request(`/api/evolution/status/${instanceName}`);
   }
 
-  async connectEvolution(instanceName: string, userId: number): Promise<ApiResponse<any>> {
+  async connectEvolution(instanceName: string, userId: string): Promise<ApiResponse<any>> {
     return this.request('/api/evolution/connect', {
       method: 'POST',
       body: JSON.stringify({ instanceName, userId }),

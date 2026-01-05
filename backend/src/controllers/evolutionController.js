@@ -285,7 +285,7 @@ const fetchWithRetry = async (url, options, maxRetries = 3) => {
 export const getInstanceGroups = async (req, res) => {
   console.log('=== EVOLUTION GROUPS REQUEST START ===');
   console.log('Time:', new Date().toISOString());
-  
+
   try {
     const { instanceName } = req.params;
     const { userId } = req.query;
@@ -303,7 +303,7 @@ export const getInstanceGroups = async (req, res) => {
     // Check cache first
     const cacheKey = `${instanceName}_${userId}`;
     const cachedData = groupsCache.get(cacheKey);
-    
+
     if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
       console.log('🎯 Cache hit! Returning cached groups');
       return res.json({
@@ -317,8 +317,35 @@ export const getInstanceGroups = async (req, res) => {
     console.log('🔧 EVOLUTION_API_URL:', EVOLUTION_API_URL || 'NOT SET');
     console.log('🔑 EVOLUTION_API_KEY present:', !!EVOLUTION_API_KEY);
 
-    // Skip instance status check for now - it's causing issues
-    console.log('⏭️ Skipping instance status check, proceeding directly to fetch groups...');
+    // Verificar status da instância antes de buscar grupos
+    console.log('🔍 Verificando status da instância...');
+    try {
+      const statusResponse = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${instanceName}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVOLUTION_API_KEY
+        }
+      });
+
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json();
+        console.log('📊 Status da instância:', statusData);
+
+        if (statusData.instance?.state !== 'open') {
+          console.log('❌ Instância não conectada:', statusData.instance?.state);
+          return res.status(400).json({
+            success: false,
+            message: 'WhatsApp desconectado. Por favor, escaneie o QR Code novamente para reconectar.',
+            disconnected: true,
+            state: statusData.instance?.state || 'unknown'
+          });
+        }
+        console.log('✅ Instância conectada, buscando grupos...');
+      }
+    } catch (statusError) {
+      console.log('⚠️ Não foi possível verificar status, tentando buscar grupos mesmo assim...');
+    }
 
     // Create AbortController for timeout - increased to 3 minutes for groups fetch
     const controller = new AbortController();
