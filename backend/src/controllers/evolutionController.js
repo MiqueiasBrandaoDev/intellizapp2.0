@@ -1,5 +1,3 @@
-import { query } from '../config/database.js';
-
 // Evolution API configuration
 const EVOLUTION_API_URL = process.env.VITE_EVOLUTION_API_URL || process.env.EVOLUTION_API_URL || 'http://localhost:8080';
 const EVOLUTION_API_KEY = process.env.VITE_EVOLUTION_API_KEY || process.env.EVOLUTION_API_KEY || 'your-evolution-api-key';
@@ -322,9 +320,9 @@ export const getInstanceGroups = async (req, res) => {
     // Skip instance status check for now - it's causing issues
     console.log('⏭️ Skipping instance status check, proceeding directly to fetch groups...');
 
-    // Create AbortController for timeout - increased to 2 minutes for groups fetch
+    // Create AbortController for timeout - increased to 3 minutes for groups fetch
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
+    const timeoutId = setTimeout(() => controller.abort(), 180000);
 
     try {
       console.log('🔄 Fetching groups with retry logic...');
@@ -355,11 +353,11 @@ export const getInstanceGroups = async (req, res) => {
         throw new Error('Formato de resposta inválido do WhatsApp');
       }
 
-      // Format groups for our database
+      // Format groups for our database (userId é UUID do Supabase)
       const formattedGroups = groups.map(group => ({
         nome_grupo: group.subject || 'Sem nome',
         grupo_id_externo: group.id,
-        usuario_id: parseInt(userId),
+        usuario_id: userId,
         ativo: true,
         participantes: group.participants?.length || 0,
         descricao: group.desc || null

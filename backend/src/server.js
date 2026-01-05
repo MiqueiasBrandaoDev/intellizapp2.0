@@ -15,6 +15,7 @@ import dashboardRoutes from './routes/dashboard.js';
 import resumosRoutes from './routes/resumos.js';
 import healthRoutes from './routes/health.js';
 import adminRoutes from './routes/admin.js';
+import intellichatRoutes from './routes/intellichat.js';
 
 // Load environment variables
 dotenv.config();
@@ -49,7 +50,8 @@ app.use(express.urlencoded({ extended: true }));
 // Set server timeout to 3 minutes for long-running Evolution API calls
 app.use((req, res, next) => {
   // Set timeout to 3 minutes for Evolution API routes
-  if (req.path.includes('/evolution/')) {
+  if (req.path.includes('/evolution/') || req.path.includes('/api/evolution/')) {
+    console.log(`🕐 Setting 3-minute timeout for Evolution route: ${req.path}`);
     req.setTimeout(180000); // 3 minutes
     res.setTimeout(180000); // 3 minutes
   } else {
@@ -78,6 +80,7 @@ app.use('/api/evolution', evolutionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/resumos', resumosRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/intellichat', intellichatRoutes);
 app.use('/', healthRoutes);
 
 // 404 handler
@@ -109,9 +112,9 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`\n🚀 InteliZap API running on port ${PORT}`);
       console.log(`📋 Health check: http://localhost:${PORT}/health`);
-      console.log(`🌐 CORS enabled for: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
-      console.log(`📊 Environment: ${process.env.VITE_APP_ENVIRONMENT || 'development'}`);
-      console.log(`🔒 JWT expires in: ${process.env.JWT_EXPIRES_IN || '7d'}`);
+      console.log(`🌐 CORS enabled for: ${process.env.CORS_ORIGIN || 'all origins'}`);
+      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🗄️  Database: Supabase (${process.env.SUPABASE_URL})`);
       console.log('\n📚 Available endpoints:');
       console.log('  POST /api/auth/login');
       console.log('  POST /api/auth/register');

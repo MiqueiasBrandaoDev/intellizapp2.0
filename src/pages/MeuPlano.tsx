@@ -19,22 +19,22 @@ import {
 } from 'lucide-react';
 
 const MeuPlano = () => {
-  const { user } = useAuth();
-  const planoAtivo = user?.plano_ativo === 1;
+  const { profile } = useAuth();
+  const planoAtivo = profile?.plano_ativo === true;
 
   const handlePagamento = () => {
     window.open('https://payment.ticto.app/O58A018E0', '_blank');
   };
 
   // Calcular IntelliCoins baseado nos grupos (cada grupo = 105 coins)
-  const maxGrupos = user?.max_grupos || 0;
+  const maxGrupos = profile?.max_grupos || 0;
   const totalCoins = maxGrupos * 105; // 105 coins por grupo
-  const intelliCoinsDisponiveis = Math.floor((user?.tokens_mes || 0) / 1000);
+  const intelliCoinsDisponiveis = Math.floor((profile?.tokens_mes || 0) / 1000);
   const coinsPercentage = totalCoins > 0 ? (intelliCoinsDisponiveis / totalCoins) * 100 : 0;
 
   // Calcular próxima renovação
   const getRenovacaoDate = () => {
-    const diaRenovacao = user?.['dia-renovacao-tokens'];
+    const diaRenovacao = (profile as any)?.['dia-renovacao-tokens'];
     if (!diaRenovacao) return null;
     
     const hoje = new Date();
@@ -188,7 +188,7 @@ const MeuPlano = () => {
               <div className="bg-primary/10 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-2">
                 <Users className="h-6 w-6 text-primary" />
               </div>
-              <p className="font-medium">{user?.max_grupos || 0}</p>
+              <p className="font-medium">{profile?.max_grupos || 0}</p>
               <p className="text-sm text-muted-foreground">Grupos WhatsApp</p>
             </div>
             <div className="text-center">
@@ -237,7 +237,7 @@ const MeuPlano = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-green-500" />
-                <span className="text-sm">Até {user?.max_grupos || 3} grupos WhatsApp</span>
+                <span className="text-sm">Até {profile?.max_grupos || 3} grupos WhatsApp</span>
               </div>
               <div className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-green-500" />
@@ -309,14 +309,14 @@ const MeuPlano = () => {
             <h4 className="font-medium">Como funcionam os IntelliCoins?</h4>
             <p className="text-sm text-muted-foreground">
               Cada grupo recebe 105 IntelliCoins para gerar resumos inteligentes. 
-              Os coins são renovados automaticamente todo mês no dia {user?.['dia-renovacao-tokens'] || 'definido'}.
+              Os coins são renovados automaticamente todo mês no dia {(profile as any)?.['dia-renovacao-tokens'] || 'definido'}.
             </p>
           </div>
           
           <div className="space-y-2">
             <h4 className="font-medium">Como funciona o limite de grupos?</h4>
             <p className="text-sm text-muted-foreground">
-              Com o plano premium, você pode conectar até {user?.max_grupos || 3} grupos WhatsApp 
+              Com o plano premium, você pode conectar até {profile?.max_grupos || 3} grupos WhatsApp 
               para receber resumos automáticos e análises.
             </p>
           </div>

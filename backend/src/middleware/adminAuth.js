@@ -1,9 +1,9 @@
-import { getConnection } from '../config/database.js';
+import { supabase } from '../config/database.js';
 
 export const authenticateAdmin = async (req, res, next) => {
   try {
-    const { userId } = req.user;
-    
+    const userId = req.user?.id;
+
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -11,34 +11,12 @@ export const authenticateAdmin = async (req, res, next) => {
       });
     }
 
-    const connection = getConnection();
-    
-    // Check if user exists and has admin privileges
-    const [userResult] = await connection.execute(
-      'SELECT id, nome, email, is_admin FROM usuarios WHERE id = ?',
-      [userId]
-    );
-
-    if (userResult.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuário não encontrado'
-      });
-    }
-
-    const user = userResult[0];
-
-    // Check if user is admin
-    if (!user.is_admin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Acesso negado. Privilégios de administrador necessários.'
-      });
-    }
-
-    // Add admin user info to request
-    req.admin = user;
-    next();
+    // TODO: Implementar verificação de admin quando tabela usuarios tiver campo is_admin
+    // Por enquanto, bloqueia acesso admin
+    return res.status(403).json({
+      success: false,
+      message: 'Acesso negado. Sistema admin em construção.'
+    });
 
   } catch (error) {
     console.error('❌ Admin auth error:', error);

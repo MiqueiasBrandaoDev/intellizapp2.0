@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +35,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const Grupos = () => {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -46,7 +46,6 @@ const Grupos = () => {
   } | null>(null);
   const [evolutionSearchTerm, setEvolutionSearchTerm] = useState('');
   const [updatingGroups, setUpdatingGroups] = useState<Set<number>>(new Set());
-  
   
   const {
     grupos,
@@ -61,6 +60,13 @@ const Grupos = () => {
     isCreating,
     createError
   } = useGrupos();
+  
+  // Limpar estado de updating quando os dados recarregarem
+  useEffect(() => {
+    if (!isLoading && !isUpdating) {
+      setUpdatingGroups(new Set());
+    }
+  }, [grupos, isLoading, isUpdating]);
 
   // Usar contexto global para grupos da Evolution API
   const {
@@ -81,26 +87,40 @@ const Grupos = () => {
   );
 
   const handleToggleActive = async (id: number, currentStatus: boolean) => {
+    // Evitar duplo clique
+    if (updatingGroups.has(id)) return;
+    
     setUpdatingGroups(prev => new Set(prev).add(id));
     try {
-      updateGrupo({ id, data: { resumo_ativo: !currentStatus } });
-      
-      toast({
-        title: "Resumos atualizados",
-        description: `Resumos automáticos ${!currentStatus ? 'ativados' : 'desativados'} com sucesso.`
+      await new Promise((resolve, reject) => {
+        updateGrupo({ id, data: { resumo_ativo: !currentStatus } }, {
+          onSuccess: () => {
+            toast({
+              title: "Resumos atualizados",
+              description: `Resumos automáticos ${!currentStatus ? 'ativados' : 'desativados'} com sucesso.`
+            });
+            resolve(true);
+          },
+          onError: (error: any) => {
+            toast({
+              variant: "destructive",
+              title: "Erro",
+              description: error?.message || "Não foi possível atualizar a configuração de resumos."
+            });
+            reject(error);
+          }
+        });
       });
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Não foi possível atualizar a configuração de resumos."
-      });
+      console.error('Toggle active error:', error);
     } finally {
-      setUpdatingGroups(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      setTimeout(() => {
+        setUpdatingGroups(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }, 200);
     }
   };
 
@@ -122,50 +142,78 @@ const Grupos = () => {
   };
 
   const handleToggleTranscricao = async (id: number, currentStatus: boolean) => {
+    // Evitar duplo clique
+    if (updatingGroups.has(id)) return;
+    
     setUpdatingGroups(prev => new Set(prev).add(id));
     try {
-      updateGrupo({ id, data: { transcricao_ativa: !currentStatus } });
-      
-      toast({
-        title: "Transcrição atualizada",
-        description: `Transcrição de áudios ${!currentStatus ? 'ativada' : 'desativada'} com sucesso.`
+      await new Promise((resolve, reject) => {
+        updateGrupo({ id, data: { transcricao_ativa: !currentStatus } }, {
+          onSuccess: () => {
+            toast({
+              title: "Transcrição atualizada",
+              description: `Transcrição de áudios ${!currentStatus ? 'ativada' : 'desativada'} com sucesso.`
+            });
+            resolve(true);
+          },
+          onError: (error: any) => {
+            toast({
+              variant: "destructive",
+              title: "Erro",
+              description: error?.message || "Não foi possível atualizar a configuração de transcrição."
+            });
+            reject(error);
+          }
+        });
       });
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Não foi possível atualizar a configuração de transcrição."
-      });
+      console.error('Toggle transcricao error:', error);
     } finally {
-      setUpdatingGroups(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      setTimeout(() => {
+        setUpdatingGroups(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }, 200);
     }
   };
 
   const handleToggleLudico = async (id: number, currentStatus: boolean) => {
+    // Evitar duplo clique
+    if (updatingGroups.has(id)) return;
+    
     setUpdatingGroups(prev => new Set(prev).add(id));
     try {
-      updateGrupo({ id, data: { ludico: !currentStatus } });
-      
-      toast({
-        title: "Modo lúdico atualizado",
-        description: `Modo lúdico ${!currentStatus ? 'ativado' : 'desativado'} com sucesso.`
+      await new Promise((resolve, reject) => {
+        updateGrupo({ id, data: { ludico: !currentStatus } }, {
+          onSuccess: () => {
+            toast({
+              title: "Modo lúdico atualizado",
+              description: `Modo lúdico ${!currentStatus ? 'ativado' : 'desativado'} com sucesso.`
+            });
+            resolve(true);
+          },
+          onError: (error: any) => {
+            toast({
+              variant: "destructive",
+              title: "Erro",
+              description: error?.message || "Não foi possível atualizar o modo lúdico."
+            });
+            reject(error);
+          }
+        });
       });
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Não foi possível atualizar o modo lúdico."
-      });
+      console.error('Toggle ludico error:', error);
     } finally {
-      setUpdatingGroups(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      setTimeout(() => {
+        setUpdatingGroups(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }, 200);
     }
   };
 
@@ -194,7 +242,7 @@ const Grupos = () => {
     if (!user || !selectedEvolutionGroup) return;
 
     // Verificar limite de grupos antes de adicionar
-    const maxGrupos = user.max_grupos || 0;
+    const maxGrupos = profile.max_grupos || 0;
     const gruposAtuais = grupos.length;
 
     if (gruposAtuais >= maxGrupos) {
@@ -209,7 +257,7 @@ const Grupos = () => {
     createGrupo({
       nome_grupo: selectedEvolutionGroup.nome_grupo,
       grupo_id_externo: selectedEvolutionGroup.grupo_id_externo,
-      usuario_id: user.id,
+      usuario_id: profile.id,
       ativo: true
     }, {
       onSuccess: () => {
@@ -300,19 +348,19 @@ const Grupos = () => {
           </p>
           <div className="flex items-center gap-2 mt-2">
             <span className="text-sm text-muted-foreground">
-              {grupos.length} de {user?.max_grupos || 0} grupos utilizados
+              {grupos.length} de {profile?.max_grupos || 0} grupos utilizados
             </span>
             <div className="flex-1 bg-muted rounded-full h-2 max-w-32">
               <div 
                 className={`h-2 rounded-full transition-all ${
-                  grupos.length >= (user?.max_grupos || 0) 
+                  grupos.length >= (profile?.max_grupos || 0) 
                     ? 'bg-red-500' 
-                    : grupos.length >= (user?.max_grupos || 0) * 0.8 
+                    : grupos.length >= (profile?.max_grupos || 0) * 0.8 
                       ? 'bg-yellow-500' 
                       : 'bg-green-500'
                 }`}
                 style={{ 
-                  width: `${Math.min(100, (grupos.length / (user?.max_grupos || 1)) * 100)}%` 
+                  width: `${Math.min(100, (grupos.length / (profile?.max_grupos || 1)) * 100)}%` 
                 }}
               />
             </div>
@@ -343,11 +391,11 @@ const Grupos = () => {
               <Button 
                 variant="outline"
                 className="cyber-button-outline"
-                disabled={grupos.length >= (user?.max_grupos || 0)}
-                title={grupos.length >= (user?.max_grupos || 0) ? 'Limite de grupos atingido' : ''}
+                disabled={grupos.length >= (profile?.max_grupos || 0)}
+                title={grupos.length >= (profile?.max_grupos || 0) ? 'Limite de grupos atingido' : ''}
               >
                 <Plus className="mr-2 h-4 w-4" />
-                {grupos.length >= (user?.max_grupos || 0) ? 'Limite Atingido' : 'Adicionar Grupo'}
+                {grupos.length >= (profile?.max_grupos || 0) ? 'Limite Atingido' : 'Adicionar Grupo'}
               </Button>
             </DialogTrigger>
             <DialogContent className="cyber-card max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -514,7 +562,7 @@ const Grupos = () => {
             <CardContent className="space-y-4">
               {/* Configurações */}
               <div className="space-y-3">
-                {isLoading || updatingGroups.has(grupo.id) ? (
+                {updatingGroups.has(grupo.id) ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-muted-foreground">Resumos ativos</span>
@@ -534,8 +582,8 @@ const Grupos = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Resumos ativos</span>
                       <Switch
-                        checked={grupo.resumo_ativo || false}
-                        onCheckedChange={() => handleToggleActive(grupo.id, grupo.resumo_ativo)}
+                        checked={Boolean(grupo.resumo_ativo)}
+                        onCheckedChange={() => handleToggleActive(grupo.id, Boolean(grupo.resumo_ativo))}
                         disabled={isUpdating || updatingGroups.has(grupo.id)}
                       />
                     </div>
@@ -543,8 +591,8 @@ const Grupos = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Transcrição de áudios</span>
                       <Switch
-                        checked={grupo.transcricao_ativa || false}
-                        onCheckedChange={() => handleToggleTranscricao(grupo.id, grupo.transcricao_ativa)}
+                        checked={Boolean(grupo.transcricao_ativa)}
+                        onCheckedChange={() => handleToggleTranscricao(grupo.id, Boolean(grupo.transcricao_ativa))}
                         disabled={isUpdating || updatingGroups.has(grupo.id)}
                       />
                     </div>
@@ -552,8 +600,8 @@ const Grupos = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Modo lúdico</span>
                       <Switch
-                        checked={grupo.ludico || false}
-                        onCheckedChange={() => handleToggleLudico(grupo.id, grupo.ludico)}
+                        checked={Boolean(grupo.ludico)}
+                        onCheckedChange={() => handleToggleLudico(grupo.id, Boolean(grupo.ludico))}
                         disabled={isUpdating || updatingGroups.has(grupo.id)}
                       />
                     </div>

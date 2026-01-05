@@ -1,24 +1,41 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { apiService } from '@/services/api';
-import { Usuario } from '@/types/database';
+import { supabase } from '@/lib/supabase';
+import { User, Session } from '@supabase/supabase-js';
 
-type User = Usuario;
+interface UserProfile {
+  id: string;
+  auth_id: string;
+  nome: string;
+  email: string;
+  instancia?: string;
+  plano_ativo: boolean;
+  max_grupos: number;
+  tokens_mes: number;
+  horaResumo?: string;
+  resumoDiaAnterior?: boolean;
+  transcricao_ativa?: boolean;
+  'transcricao-pvd'?: boolean;
+  transcreverEu?: boolean;
+  ludico?: boolean;
+  agendamento?: boolean;
+  'key-openai'?: string;
+  ambiente?: 'prod' | 'dev';
+  avatar_url?: string;
+  criado_em?: string;
+}
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (userData: RegisterData) => Promise<void>;
-  logout: () => void;
-  updateUser: (userData: Partial<User>) => Promise<void>;
+  profile: UserProfile | null;
+  session: Session | null;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signUp: (email: string, password: string, nome: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  updateProfile: (data: Partial<UserProfile>) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   loading: boolean;
   isAuthenticated: boolean;
-}
-
-interface RegisterData {
-  nome: string;
-  email: string;
-  senha: string;
-  instancia: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,152 +50,282 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Fetch user profile from database using auth_id
+  const fetchProfile = async (authId: string): Promise<UserProfile | null> => {
+    try {
+      console.log('🔍 Fetching profile for auth_id:', authId);
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('auth_id', authId)
+        .single();
+
+      if (error) {
+        // Se não encontrar, pode ser que o perfil ainda não existe
+        if (error.code === 'PGRST116') {
+          console.log('📭 Profile not found for auth_id:', authId);
+          return null;
+        }
+        console.error('❌ Error fetching profile:', error);
+        return null;
+      }
+
+      console.log('✅ Profile found:', data);
+      return data as UserProfile;
+    } catch (error) {
+      console.error('❌ Exception fetching profile:', error);
+      return null;
+    }
+  };
+
+  // Create profile for new users
+  const createProfile = async (authId: string, email: string, nome: string, avatarUrl?: string): Promise<UserProfile | null> => {
+    try {
+      console.log('📝 Creating profile for:', { authId, email, nome });
+      const newProfile = {
+        auth_id: authId,
+        nome: nome || email.split('@')[0],
+        email: email,
+        plano_ativo: false,
+        max_grupos: 3,
+        tokens_mes: 1000,
+        avatar_url: avatarUrl,
+        criado_em: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('usuarios')
+        .insert([newProfile])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Error creating profile:', error);
+        return null;
+      }
+
+      console.log('✅ Profile created:', data);
+      return data as UserProfile;
+    } catch (error) {
+      console.error('❌ Exception creating profile:', error);
+      return null;
+    }
+  };
+
   useEffect(() => {
-    const checkStoredAuth = async () => {
-      // LIMPAR CACHE SEMPRE - DADOS FRESCOS DO BANCO
-      console.log('🗑️ LIMPANDO CACHE LOCALSTORAGE');
-      
-      const storedToken = localStorage.getItem('intellizapp_token');
-      let storedUserId = null;
-      
-      // Tentar pegar apenas o ID do usuário, ignorar resto dos dados
+    // Get initial session
+    const initializeAuth = async () => {
+      console.log('🚀 Initializing auth...');
       try {
-        const storedUser = localStorage.getItem('intellizapp_user');
-        if (storedUser) {
-          const userData = JSON.parse(storedUser);
-          storedUserId = userData.id;
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        console.log('📋 Current session:', currentSession ? 'exists' : 'null');
+
+        if (currentSession) {
+          setSession(currentSession);
+          setUser(currentSession.user);
+
+          // Fetch user profile using auth_id
+          const userProfile = await fetchProfile(currentSession.user.id);
+          if (userProfile) {
+            setProfile(userProfile);
+          } else {
+            // Create profile if doesn't exist (for OAuth users)
+            console.log('⚠️ No profile found, attempting to create...');
+            const newProfile = await createProfile(
+              currentSession.user.id,
+              currentSession.user.email || '',
+              currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.name || '',
+              currentSession.user.user_metadata?.avatar_url
+            );
+            if (newProfile) {
+              setProfile(newProfile);
+            } else {
+              console.warn('⚠️ Could not create profile - table might not exist yet');
+            }
+          }
+
+          // Dispatch event for other components
+          window.dispatchEvent(new CustomEvent('userLoggedIn', {
+            detail: { user: currentSession.user }
+          }));
         }
       } catch (error) {
-        console.log('Erro ao ler userData local, ignorando...');
+        console.error('❌ Error initializing auth:', error);
+      } finally {
+        console.log('✅ Auth initialization complete, setting loading to false');
+        setLoading(false);
       }
-      
-      if (storedToken && storedUserId) {
-        try {
-          console.log('🔄 BUSCANDO DADOS FRESCOS DO BANCO - ID:', storedUserId);
-          
-          // SEMPRE buscar dados frescos do servidor
-          const response = await apiService.getUser(storedUserId);
-          
-          if (response.success && response.data) {
-            console.log('✅ DADOS DO BANCO CARREGADOS:', {
-              transcricao_ativa: response.data.transcricao_ativa,
-              'transcricao-pvd': response.data['transcricao-pvd'],
-              transcreverEu: response.data.transcreverEu,
-              ludico: response.data.ludico,
-              agendamento: response.data.agendamento
-            });
-            
-            // Usar dados frescos do banco
-            setUser(response.data);
-            localStorage.setItem('intellizapp_user', JSON.stringify(response.data));
-            
-            // Disparar evento customizado para iniciar carregamento de grupos
-            window.dispatchEvent(new CustomEvent('userLoggedIn', { 
-              detail: { user: response.data } 
-            }));
-          } else {
-            // Backend retornou erro, limpar tudo
-            console.error('❌ Backend retornou erro, limpando sessão');
-            localStorage.removeItem('intellizapp_user');
-            localStorage.removeItem('intellizapp_token');
-            setUser(null);
-          }
-        } catch (error) {
-          // Backend não está funcionando - limpar tudo
-          console.error('❌ Backend não funcional, limpando sessão:', error);
-          localStorage.removeItem('intellizapp_user');
-          localStorage.removeItem('intellizapp_token');
-          setUser(null);
-        }
-      }
-      setLoading(false);
     };
 
-    checkStoredAuth();
+    initializeAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      console.log('Auth state changed:', event);
+
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
+
+      if (newSession?.user) {
+        // Fetch or create profile
+        let userProfile = await fetchProfile(newSession.user.id);
+
+        if (!userProfile && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
+          userProfile = await createProfile(
+            newSession.user.id,
+            newSession.user.email || '',
+            newSession.user.user_metadata?.full_name || newSession.user.user_metadata?.name || '',
+            newSession.user.user_metadata?.avatar_url
+          );
+        }
+
+        setProfile(userProfile);
+
+        window.dispatchEvent(new CustomEvent('userLoggedIn', {
+          detail: { user: newSession.user }
+        }));
+      } else {
+        setProfile(null);
+      }
+
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const signInWithEmail = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const response = await apiService.login(email, password);
-      
-      if (response.success && response.data) {
-        setUser(response.data.user);
-        localStorage.setItem('intellizapp_user', JSON.stringify(response.data.user));
-        localStorage.setItem('intellizapp_token', response.data.token);
-        
-        // Disparar evento customizado para iniciar carregamento de grupos
-        window.dispatchEvent(new CustomEvent('userLoggedIn', { 
-          detail: { user: response.data.user } 
-        }));
-      } else {
-        throw new Error(response.message || 'Login failed');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        const userProfile = await fetchProfile(data.user.id);
+        setProfile(userProfile);
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Sign in error:', error);
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  const register = async (userData: RegisterData) => {
+  const signInWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Google sign in error:', error);
+      throw error;
+    }
+  };
+
+  const signUp = async (email: string, password: string, nome: string) => {
     setLoading(true);
     try {
-      const response = await apiService.register(userData);
-      
-      if (response.success && response.data) {
-        setUser(response.data.user);
-        localStorage.setItem('intellizapp_user', JSON.stringify(response.data.user));
-        localStorage.setItem('intellizapp_token', response.data.token);
-        
-        // Disparar evento customizado para iniciar carregamento de grupos
-        window.dispatchEvent(new CustomEvent('userLoggedIn', { 
-          detail: { user: response.data.user } 
-        }));
-      } else {
-        throw new Error(response.message || 'Registration failed');
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: nome,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        // Create profile with auth_id
+        await createProfile(data.user.id, email, nome);
       }
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('Sign up error:', error);
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('intellizapp_user');
-    localStorage.removeItem('intellizapp_token');
+  const signOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      setUser(null);
+      setProfile(null);
+      setSession(null);
+    } catch (error) {
+      console.error('Sign out error:', error);
+      throw error;
+    }
   };
 
-  const updateUser = async (userData: Partial<User>) => {
-    if (!user) return;
-    
+  const updateProfile = async (data: Partial<UserProfile>) => {
+    if (!user || !profile) return;
+
     try {
-      const response = await apiService.updateUser(user.id, userData);
-      
-      if (response.success && response.data) {
-        setUser(response.data);
-        localStorage.setItem('intellizapp_user', JSON.stringify(response.data));
-      } else {
-        throw new Error(response.message || 'Profile update failed');
-      }
+      const { data: updatedProfile, error } = await supabase
+        .from('usuarios')
+        .update(data)
+        .eq('auth_id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setProfile(updatedProfile as UserProfile);
     } catch (error) {
-      console.error('Update user error:', error);
+      console.error('Update profile error:', error);
+      throw error;
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Reset password error:', error);
       throw error;
     }
   };
 
   const value = {
     user,
-    login,
-    register,
-    logout,
-    updateUser,
+    profile,
+    session,
+    signInWithEmail,
+    signInWithGoogle,
+    signUp,
+    signOut,
+    updateProfile,
+    resetPassword,
     loading,
     isAuthenticated: !!user,
   };

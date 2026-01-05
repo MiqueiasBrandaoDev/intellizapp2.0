@@ -10,7 +10,7 @@ export const useResumos = (
   grupoId?: number,
   status?: string
 ) => {
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const queryClient = useQueryClient();
 
   const {
@@ -19,10 +19,10 @@ export const useResumos = (
     error,
     refetch
   } = useQuery({
-    queryKey: ['resumos', user?.id, page, limit, dataInicio, dataFim, grupoId, status],
-    queryFn: () => 
-      user ? apiService.getResumos(user.id, page, limit, dataInicio, dataFim, grupoId, status) : Promise.resolve(null),
-    enabled: !!user?.id,
+    queryKey: ['resumos', profile?.id, page, limit, dataInicio, dataFim, grupoId, status],
+    queryFn: () =>
+      profile ? apiService.getResumos(profile.id, page, limit, dataInicio, dataFim, grupoId, status) : Promise.resolve(null),
+    enabled: !!profile?.id,
   });
 
   const gerarResumoMutation = useMutation({

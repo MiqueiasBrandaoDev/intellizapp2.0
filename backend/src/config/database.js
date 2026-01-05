@@ -1,64 +1,78 @@
-import mysql from 'mysql2/promise';
-import dotenv from 'dotenv';
+import { createClient } from '@supabase/supabase-js';
 
-dotenv.config();
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME || 'intellizap',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  acquireTimeout: 60000,
-  timeout: 60000,
-  reconnect: true
-};
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('❌ Missing Supabase configuration:');
+  console.error('  SUPABASE_URL:', supabaseUrl ? '✓' : '✗');
+  console.error('  SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? '✓' : '✗');
+  throw new Error('Missing Supabase environment variables');
+}
 
-let pool;
+// Cliente com service_role para operações do backend (bypass RLS)
+export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
 
+// Função de inicialização (para compatibilidade)
 export const createConnection = async () => {
   try {
-    if (!pool) {
-      pool = mysql.createPool(dbConfig);
-      
-      // Test connection
-      const connection = await pool.getConnection();
-      console.log('✅ Connected to MySQL database:', process.env.DB_NAME);
-      connection.release();
+    // Testar conexão
+    const { data, error } = await supabase.from('usuarios').select('count').limit(1);
+
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 = tabela não encontrada (ok se ainda não existe)
+      if (error.code !== '42P01') { // 42P01 = relation does not exist
+        console.warn('⚠️ Supabase connection warning:', error.message);
+      }
     }
-    return pool;
+
+    console.log('✅ Connected to Supabase:', supabaseUrl);
+    return supabase;
   } catch (error) {
-    console.error('❌ Database connection failed:', error.message);
-    console.error('Config used:', {
-      host: dbConfig.host,
-      port: dbConfig.port,
-      user: dbConfig.user,
-      database: dbConfig.database
-    });
+    console.error('❌ Supabase connection failed:', error.message);
     throw error;
   }
 };
 
-export const getConnection = () => {
-  if (!pool) {
-    throw new Error('Database not initialized. Call createConnection() first.');
-  }
-  return pool;
-};
+// Alias para compatibilidade
+export const getConnection = () => supabase;
 
-// Helper function for queries
-export const query = async (sql, params = []) => {
+// Helper para queries diretas (compatibilidade com código legado)
+export const query = async (table, operation, params = {}) => {
   try {
-    const connection = getConnection();
-    const [rows, fields] = await connection.execute(sql, params);
-    return rows;
+    let result;
+
+    switch (operation) {
+      case 'select':
+        result = await supabase.from(table).select(params.columns || '*');
+        break;
+      case 'insert':
+        result = await supabase.from(table).insert(params.data).select();
+        break;
+      case 'update':
+        result = await supabase.from(table).update(params.data).match(params.match).select();
+        break;
+      case 'delete':
+        result = await supabase.from(table).delete().match(params.match);
+        break;
+      default:
+        throw new Error(`Unknown operation: ${operation}`);
+    }
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    return result.data;
   } catch (error) {
-    console.error('❌ Database query error:', error.message);
-    console.error('SQL:', sql);
-    console.error('Params:', params);
+    console.error('❌ Supabase query error:', error.message);
     throw error;
   }
 };
+
+export default supabase;

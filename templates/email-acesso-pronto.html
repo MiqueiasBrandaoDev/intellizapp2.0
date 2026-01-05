@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seu acesso ao InteliZap está pronto!</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #25D366, #128C7E);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .header-subtitle {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px 30px;
+        }
+        
+        .welcome-title {
+            font-size: 24px;
+            color: #128C7E;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .message {
+            font-size: 16px;
+            margin-bottom: 30px;
+            text-align: center;
+            color: #555;
+        }
+        
+        .credentials-box {
+            background-color: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        
+        .credentials-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #128C7E;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .credential-item {
+            margin-bottom: 15px;
+        }
+        
+        .credential-label {
+            font-weight: bold;
+            color: #333;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .credential-value {
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-family: monospace;
+            font-size: 14px;
+            word-break: break-all;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #25D366, #128C7E);
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 20px 0;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .steps {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        
+        .steps-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #128C7E;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+        
+        .step-number {
+            background-color: #25D366;
+            color: white;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .step-text {
+            font-size: 14px;
+            color: #555;
+        }
+        
+        .warning-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .warning-text {
+            font-size: 14px;
+            color: #856404;
+            text-align: center;
+        }
+        
+        .footer {
+            background-color: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .footer-text {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .support-text {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .support-link {
+            color: #128C7E;
+            text-decoration: none;
+        }
+        
+        @media only screen and (max-width: 600px) {
+            .container {
+                margin: 10px;
+            }
+            
+            .header, .content, .footer {
+                padding: 20px;
+            }
+            
+            .logo {
+                font-size: 24px;
+            }
+            
+            .welcome-title {
+                font-size: 20px;
+            }
+            
+            .credentials-box, .steps {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">🤖 InteliZap</div>
+            <div class="header-subtitle">Automação Inteligente para WhatsApp</div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h1 class="welcome-title">🎉 Seu acesso está pronto!</h1>
+            
+            <p class="message">
+                Olá <strong>{{NOME_USUARIO}}</strong>!<br><br>
+                Ficamos muito felizes em ter você conosco. Sua conta no InteliZap foi criada com sucesso 
+                e você já pode começar a usar todas as funcionalidades da nossa plataforma.
+            </p>
+
+            <!-- Credentials Box -->
+            <div class="credentials-box">
+                <div class="credentials-title">🔐 Suas credenciais de acesso</div>
+                
+                <div class="credential-item">
+                    <span class="credential-label">Email:</span>
+                    <div class="credential-value">{{EMAIL_USUARIO}}</div>
+                </div>
+                
+                <div class="credential-item">
+                    <span class="credential-label">Senha:</span>
+                    <div class="credential-value">{{SENHA_TEMPORARIA}}</div>
+                </div>
+                
+                <div class="credential-item">
+                    <span class="credential-label">Plano:</span>
+                    <div class="credential-value">{{PLANO_USUARIO}}</div>
+                </div>
+            </div>
+
+            <!-- Warning -->
+            <div class="warning-box">
+                <div class="warning-text">
+                    ⚠️ <strong>Importante:</strong> Por segurança, recomendamos que você altere sua senha 
+                    no primeiro acesso através das configurações da sua conta.
+                </div>
+            </div>
+
+            <!-- CTA Button -->
+            <div class="button-container">
+                <a href="{{URL_LOGIN}}" class="cta-button">
+                    🚀 Acessar minha conta
+                </a>
+            </div>
+
+            <!-- Getting Started Steps -->
+            <div class="steps">
+                <div class="steps-title">🎯 Primeiros passos</div>
+                
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-text">
+                        <strong>Faça login</strong> usando suas credenciais acima
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-text">
+                        <strong>Conecte seu WhatsApp</strong> escaneando o QR Code nas configurações
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-text">
+                        <strong>Configure seus grupos</strong> para começar a receber resumos automáticos
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-text">
+                        <strong>Personalize suas configurações</strong> e explore todas as funcionalidades
+                    </div>
+                </div>
+            </div>
+
+            <p class="message">
+                🌟 <strong>Dica:</strong> Explore o dashboard para ver todas as métricas e relatórios 
+                dos seus grupos do WhatsApp em tempo real!
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>InteliZap</strong> - Transforme suas conversas em insights valiosos
+            </p>
+            <p class="support-text">
+                Precisa de ajuda? Entre em contato com nosso 
+                <a href="mailto:{{EMAIL_SUPORTE}}" class="support-link">suporte técnico</a>
+            </p>
+            <p class="support-text">
+                Este é um email automático, não responda esta mensagem.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

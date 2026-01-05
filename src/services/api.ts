@@ -1,12 +1,12 @@
-import { 
-  Usuario, 
-  Grupo, 
-  Mensagem, 
+import {
+  Usuario,
+  Grupo,
+  Mensagem,
   Resumo,
   ResumoWithGrupo,
-  CreateUsuarioData, 
-  CreateGrupoData, 
-  CreateMensagemData, 
+  CreateUsuarioData,
+  CreateGrupoData,
+  CreateMensagemData,
   CreateResumoData,
   UpdateUsuarioData,
   DashboardStats,
@@ -15,23 +15,29 @@ import {
   PaginatedResponse,
   GrupoWithMensagens
 } from '@/types/database';
+import { supabase } from '@/lib/supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === 'production' ? '' : 'http://localhost:3001');
 
 class ApiService {
+  private async getToken(): Promise<string | null> {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  }
+
   private async request<T>(
-    endpoint: string, 
+    endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    const token = localStorage.getItem('intellizapp_token');
-    
-    // Set default timeout to 2 minutes for Evolution API calls
+    const token = await this.getToken();
+
+    // Set default timeout to 3 minutes for Evolution API calls
     const controller = new AbortController();
     const isEvolutionCall = endpoint.includes('/evolution/');
-    const timeoutMs = isEvolutionCall ? 120000 : 30000; // 2 minutes for Evolution, 30s for others
+    const timeoutMs = isEvolutionCall ? 180000 : 30000; // 3 minutes for Evolution, 30s for others
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
+
     const config: RequestInit = {
       ...options,
       signal: controller.signal,
@@ -61,21 +67,21 @@ class ApiService {
 
   // Auth endpoints
   async login(email: string, senha: string): Promise<ApiResponse<{ user: Usuario; token: string }>> {
-    return this.request('/auth/login', {
+    return this.request('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, senha }),
     });
   }
 
   async register(userData: CreateUsuarioData): Promise<ApiResponse<{ user: Usuario; token: string }>> {
-    return this.request('/auth/register', {
+    return this.request('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
   }
 
   async forgotPassword(email: string): Promise<ApiResponse<{ message: string }>> {
-    return this.request('/auth/forgot-password', {
+    return this.request('/api/auth/forgot-password', {
       method: 'POST',
       body: JSON.stringify({ email }),
     });
@@ -83,102 +89,102 @@ class ApiService {
 
   // Usuario endpoints
   async getUser(id: number): Promise<ApiResponse<Usuario>> {
-    return this.request(`/usuarios/${id}`);
+    return this.request(`/api/usuarios/${id}`);
   }
 
   async updateUser(id: number, data: UpdateUsuarioData): Promise<ApiResponse<Usuario>> {
-    return this.request(`/usuarios/${id}`, {
+    return this.request(`/api/usuarios/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
   async changePassword(id: number, currentPassword: string, newPassword: string): Promise<ApiResponse<void>> {
-    return this.request(`/usuarios/${id}/password`, {
+    return this.request(`/api/usuarios/${id}/password`, {
       method: 'PUT',
       body: JSON.stringify({ currentPassword, newPassword }),
     });
   }
 
   async deleteUser(id: number): Promise<ApiResponse<void>> {
-    return this.request(`/usuarios/${id}`, {
+    return this.request(`/api/usuarios/${id}`, {
       method: 'DELETE',
     });
   }
 
   // Grupos endpoints
   async getGrupos(usuarioId: number, page: number = 1, limit: number = 50): Promise<PaginatedResponse<Grupo>> {
-    return this.request(`/grupos?usuario_id=${usuarioId}&page=${page}&limit=${limit}`);
+    return this.request(`/api/grupos?usuario_id=${usuarioId}&page=${page}&limit=${limit}`);
   }
 
   async getGrupo(id: number): Promise<ApiResponse<GrupoWithMensagens>> {
-    return this.request(`/grupos/${id}`);
+    return this.request(`/api/grupos/${id}`);
   }
 
   async createGrupo(data: CreateGrupoData): Promise<ApiResponse<Grupo>> {
-    return this.request('/grupos', {
+    return this.request('/api/grupos', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async updateGrupo(id: number, data: Partial<CreateGrupoData>): Promise<ApiResponse<Grupo>> {
-    return this.request(`/grupos/${id}`, {
+    return this.request(`/api/grupos/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
   async deleteGrupo(id: number): Promise<ApiResponse<void>> {
-    return this.request(`/grupos/${id}`, {
+    return this.request(`/api/grupos/${id}`, {
       method: 'DELETE',
     });
   }
 
   // Mensagens endpoints
   async getMensagens(
-    grupoId: number, 
-    page: number = 1, 
+    grupoId: number,
+    page: number = 1,
     limit: number = 100
   ): Promise<PaginatedResponse<Mensagem>> {
-    return this.request(`/mensagens?grupo_id=${grupoId}&page=${page}&limit=${limit}`);
+    return this.request(`/api/mensagens?grupo_id=${grupoId}&page=${page}&limit=${limit}`);
   }
 
   async createMensagem(data: CreateMensagemData): Promise<ApiResponse<Mensagem>> {
-    return this.request('/mensagens', {
+    return this.request('/api/mensagens', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async deleteMensagem(id: number): Promise<ApiResponse<void>> {
-    return this.request(`/mensagens/${id}`, {
+    return this.request(`/api/mensagens/${id}`, {
       method: 'DELETE',
     });
   }
 
   // Resumos endpoints
   async getResumos(
-    usuarioId: number, 
-    page: number = 1, 
+    usuarioId: number,
+    page: number = 1,
     limit: number = 20,
     dataInicio?: string,
     dataFim?: string,
     grupoId?: number,
     status?: string
   ): Promise<PaginatedResponse<ResumoWithGrupo>> {
-    let endpoint = `/resumos?usuario_id=${usuarioId}&page=${page}&limit=${limit}`;
-    
+    let endpoint = `/api/resumos?usuario_id=${usuarioId}&page=${page}&limit=${limit}`;
+
     if (dataInicio) endpoint += `&data_inicio=${dataInicio}`;
     if (dataFim) endpoint += `&data_fim=${dataFim}`;
     if (grupoId) endpoint += `&grupo_id=${grupoId}`;
     if (status) endpoint += `&status=${status}`;
-    
+
     return this.request(endpoint);
   }
 
   async createResumo(data: CreateResumoData): Promise<ApiResponse<Resumo>> {
-    return this.request('/resumos', {
+    return this.request('/api/resumos', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -193,37 +199,83 @@ class ApiService {
 
   // Dashboard endpoints
   async getDashboardStats(usuarioId: number): Promise<ApiResponse<DashboardStats>> {
-    return this.request(`/dashboard/stats?usuario_id=${usuarioId}`);
+    return this.request(`/api/dashboard/stats?usuario_id=${usuarioId}`);
   }
 
   async getRecentActivity(usuarioId: number, limit: number = 5): Promise<ApiResponse<RecentActivity[]>> {
-    return this.request(`/dashboard/activity?usuario_id=${usuarioId}&limit=${limit}`);
+    return this.request(`/api/dashboard/activity?usuario_id=${usuarioId}&limit=${limit}`);
   }
 
   async getSystemInsights(usuarioId: number): Promise<ApiResponse<any>> {
-    return this.request(`/dashboard/insights?usuario_id=${usuarioId}`);
+    return this.request(`/api/dashboard/insights?usuario_id=${usuarioId}`);
   }
 
   // Evolution API endpoints
   async getEvolutionGroups(instanceName: string, userId: number): Promise<ApiResponse<any[]>> {
-    return this.request(`/evolution/groups/${instanceName}?userId=${userId}`);
+    return this.request(`/api/evolution/groups/${instanceName}?userId=${userId}`);
   }
 
   async getEvolutionStatus(instanceName: string): Promise<ApiResponse<any>> {
-    return this.request(`/evolution/status/${instanceName}`);
+    return this.request(`/api/evolution/status/${instanceName}`);
   }
 
   async connectEvolution(instanceName: string, userId: number): Promise<ApiResponse<any>> {
-    return this.request('/evolution/connect', {
+    return this.request('/api/evolution/connect', {
       method: 'POST',
       body: JSON.stringify({ instanceName, userId }),
     });
   }
 
   async disconnectEvolution(instanceName: string): Promise<ApiResponse<any>> {
-    return this.request(`/evolution/disconnect/${instanceName}`, {
+    return this.request(`/api/evolution/disconnect/${instanceName}`, {
       method: 'DELETE',
     });
+  }
+
+  // IntelliChat endpoints
+  async sendIntelliChatMessage(input: string): Promise<ApiResponse<{ response?: string; output?: string; message?: string; data?: any; fallback?: boolean }>> {
+    return this.request('/api/intellichat', {
+      method: 'POST',
+      body: JSON.stringify({ input }),
+    });
+  }
+
+  async transcribeAudio(audioBlob: Blob): Promise<ApiResponse<{ text: string }>> {
+    const formData = new FormData();
+    formData.append('data', audioBlob, 'audio.webm');
+
+    const url = import.meta.env.VITE_TRANSCRIPTION_WEBHOOK_URL;
+
+    if (!url) {
+      throw new Error('VITE_TRANSCRIPTION_WEBHOOK_URL não configurada no .env');
+    }
+
+    try {
+      console.log('📤 Enviando áudio para transcrição...');
+
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('📥 Resposta da transcrição:', data);
+
+      // O webhook retorna { text: "texto transcrito", usage: {...}, type: "duration", seconds: 5 }
+      const transcribedText = data.text || '';
+
+      return {
+        success: true,
+        data: { text: transcribedText }
+      };
+    } catch (error) {
+      console.error('❌ Error transcribing audio:', error);
+      throw error;
+    }
   }
 
   // Health check

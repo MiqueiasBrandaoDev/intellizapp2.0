@@ -3,7 +3,7 @@ import { apiService } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const useEvolutionGroups = (instanceName?: string) => {
-  const { user } = useAuth();
+  const { profile } = useAuth();
 
   const {
     data: evolutionGroupsResponse,
@@ -11,10 +11,10 @@ export const useEvolutionGroups = (instanceName?: string) => {
     error,
     refetch
   } = useQuery({
-    queryKey: ['evolutionGroups', instanceName, user?.id],
-    queryFn: () => 
-      user && instanceName ? apiService.getEvolutionGroups(instanceName, user.id) : Promise.resolve(null),
-    enabled: !!user?.id && !!instanceName && instanceName.trim() !== '',
+    queryKey: ['evolutionGroups', instanceName, profile?.id],
+    queryFn: () =>
+      profile && instanceName ? apiService.getEvolutionGroups(instanceName, profile.id) : Promise.resolve(null),
+    enabled: !!profile?.id && !!instanceName && instanceName.trim() !== '',
     staleTime: 5 * 60 * 1000, // 5 minutes
     cacheTime: 10 * 60 * 1000, // 10 minutes
   });
