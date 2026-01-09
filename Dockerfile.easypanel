@@ -23,13 +23,17 @@ COPY tailwind.config.ts ./
 COPY postcss.config.js ./
 COPY landing-page.html ./
 
-# Configurar variáveis de ambiente para build
+# Configurar variáveis de ambiente para build do frontend
 ARG VITE_API_URL="/api"
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
+ARG SUPABASE_URL
+ARG SUPABASE_ANON_KEY
+
+# Usar VITE_ se disponível, senão usar as variáveis sem prefixo
 ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
-ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL:-$SUPABASE_URL}
+ENV VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY:-$SUPABASE_ANON_KEY}
 
 # Build da aplicação frontend
 RUN npm run build
