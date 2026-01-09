@@ -14,8 +14,8 @@ import Register from "@/pages/auth/Register";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
 import ResetPassword from "@/pages/auth/ResetPassword";
 import Dashboard from "@/pages/Dashboard";
-import Grupos from "@/pages/Grupos";
-import Resumos from "@/pages/Resumos";
+import IAPublica from "@/pages/IAPublica";
+import IAOculta from "@/pages/IAOculta";
 import Settings from "@/pages/Settings";
 import Conexao from "@/pages/Conexao";
 import MeuPlano from "@/pages/MeuPlano";
@@ -69,16 +69,20 @@ const App = () => (
                   <Dashboard />
                 </ProtectedRoute>
               } />
-              <Route path="grupos" element={
+              <Route path="ia-publica" element={
                 <ProtectedRoute requiresActivePlan={true}>
-                  <Grupos />
+                  <IAPublica />
                 </ProtectedRoute>
               } />
-              <Route path="resumos" element={
+              <Route path="ia-oculta" element={
                 <ProtectedRoute requiresActivePlan={true}>
-                  <Resumos />
+                  <IAOculta />
                 </ProtectedRoute>
               } />
+              {/* Redirect antigo /grupos para ia-publica */}
+              <Route path="grupos" element={<Navigate to="/dashboard/ia-publica" replace />} />
+              {/* Redirect antigo /resumos para ia-publica (resumos agora ficam dentro das telas de IA) */}
+              <Route path="resumos" element={<Navigate to="/dashboard/ia-publica" replace />} />
               <Route path="intellichat" element={
                 <ProtectedRoute requiresActivePlan={true}>
                   <IntelliChat />

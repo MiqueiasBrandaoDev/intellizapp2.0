@@ -85,6 +85,11 @@ export default {
 				sm: 'calc(var(--radius) - 4px)'
 			},
 			keyframes: {
+				'spinner-blade': {
+					'0%': { opacity: '0.85' },
+					'50%': { opacity: '0.25' },
+					'100%': { opacity: '0.25' },
+				},
 				'accordion-down': {
 					from: { height: '0' },
 					to: { height: 'var(--radix-accordion-content-height)' },
@@ -135,6 +140,7 @@ export default {
 				}
 			},
 			animation: {
+				'spinner-blade': 'spinner-blade 1s linear infinite',
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'fade-in': 'fade-in 0.6s ease-in-out',

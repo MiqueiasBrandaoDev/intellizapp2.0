@@ -5,7 +5,6 @@ import { useEvolutionGroupsContext } from '@/contexts/EvolutionGroupsContext';
 import {
   LayoutDashboard,
   Users,
-  FileText,
   Settings,
   LogOut,
   Bot,
@@ -13,12 +12,20 @@ import {
   X,
   Smartphone,
   Crown,
-  Shield,
   Sparkles,
-  AlertTriangle
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  Globe,
+  Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
 const DashboardLayout = () => {
   const { profile, signOut, isAuthenticated } = useAuth();
@@ -26,25 +33,42 @@ const DashboardLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [gruposMenuOpen, setGruposMenuOpen] = useState(
+    location.pathname.includes('/grupos') ||
+    location.pathname.includes('/ia-publica') ||
+    location.pathname.includes('/ia-oculta')
+  );
 
-  // Redirecionar usuários sem plano ativo para página Meu Plano
+  // Redirecionar usuarios sem plano ativo para pagina Meu Plano
   useEffect(() => {
     if (profile && !profile.plano_ativo && location.pathname !== '/dashboard/meu-plano') {
       navigate('/dashboard/meu-plano', { replace: true });
     }
   }, [profile, location.pathname, navigate]);
 
+  // Abrir menu Grupos automaticamente quando navegar para subrotas
+  useEffect(() => {
+    if (
+      location.pathname.includes('/ia-publica') ||
+      location.pathname.includes('/ia-oculta')
+    ) {
+      setGruposMenuOpen(true);
+    }
+  }, [location.pathname]);
+
   if (!isAuthenticated) {
     return <Navigate to="/auth/login" replace />;
   }
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, requiresActivePlan: true },
-    { name: 'Grupos', href: '/dashboard/grupos', icon: Users, requiresActivePlan: true },
-    { name: 'Resumos', href: '/dashboard/resumos', icon: FileText, requiresActivePlan: true },
-    { name: 'Conexão', href: '/dashboard/conexao', icon: Smartphone, requiresActivePlan: true },
-    { name: 'Configurações', href: '/dashboard/settings', icon: Settings, requiresActivePlan: true },
+    { name: 'Conexao', href: '/dashboard/conexao', icon: Smartphone, requiresActivePlan: true },
+    { name: 'Configuracoes', href: '/dashboard/settings', icon: Settings, requiresActivePlan: true },
     { name: 'Meu Plano', href: '/dashboard/meu-plano', icon: Crown, requiresActivePlan: false },
+  ];
+
+  const gruposSubItems = [
+    { name: 'IA Publica', href: '/dashboard/ia-publica', icon: Globe, color: 'text-blue-500' },
+    { name: 'IA Oculta', href: '/dashboard/ia-oculta', icon: Eye, color: 'text-purple-500' },
   ];
 
   const intelliChatItem = { name: 'IntelliChat', href: '/dashboard/intellichat', icon: Sparkles, requiresActivePlan: true };
@@ -56,11 +80,15 @@ const DashboardLayout = () => {
     return location.pathname.startsWith(href);
   };
 
+  const isGruposActive =
+    location.pathname.includes('/ia-publica') ||
+    location.pathname.includes('/ia-oculta');
+
   return (
     <div className="min-h-screen bg-background cyber-grid overflow-hidden">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
@@ -69,7 +97,7 @@ const DashboardLayout = () => {
       {/* Sidebar */}
       <div className={`
         fixed inset-y-0 left-0 z-50 w-64 sm:w-60 lg:w-64 xl:w-72 bg-card cyber-border transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
         pb-safe-area-inset-bottom
       `}>
         <div className="flex h-full flex-col">
@@ -90,13 +118,81 @@ const DashboardLayout = () => {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2">
+          <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            {/* Dashboard */}
+            <Link
+              to="/dashboard"
+              className={`
+                flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                ${isActiveRoute('/dashboard') && location.pathname === '/dashboard'
+                  ? 'bg-primary/20 text-primary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }
+              `}
+              onClick={() => setSidebarOpen(false)}
+            >
+              <LayoutDashboard className="mr-3 h-5 w-5" />
+              Dashboard
+            </Link>
+
+            {/* Grupos - Menu com subitens */}
+            {profile?.plano_ativo && (
+              <Collapsible open={gruposMenuOpen} onOpenChange={setGruposMenuOpen}>
+                <CollapsibleTrigger asChild>
+                  <button
+                    className={`
+                      w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                      ${isGruposActive
+                        ? 'bg-primary/20 text-primary'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      }
+                    `}
+                  >
+                    <div className="flex items-center">
+                      <Users className="mr-3 h-5 w-5" />
+                      Grupos
+                    </div>
+                    {gruposMenuOpen ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pl-4 mt-1 space-y-1">
+                  {gruposSubItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = isActiveRoute(item.href);
+
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.href}
+                        className={`
+                          flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                          ${isActive
+                            ? 'bg-primary/20 text-primary'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                          }
+                        `}
+                        onClick={() => setSidebarOpen(false)}
+                      >
+                        <Icon className={`mr-3 h-4 w-4 ${item.color}`} />
+                        {item.name}
+                      </Link>
+                    );
+                  })}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+
+            {/* Outros itens de navegacao */}
             {navigation
               .filter(item => !item.requiresActivePlan || profile?.plano_ativo)
               .map((item) => {
                 const Icon = item.icon;
                 const isActive = isActiveRoute(item.href);
-                const showDisconnectedAlert = item.name === 'Conexão' && !isConnected;
+                const showDisconnectedAlert = item.name === 'Conexao' && !isConnected;
 
                 return (
                   <Link
