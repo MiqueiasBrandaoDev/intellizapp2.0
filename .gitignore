@@ -14,7 +14,7 @@ dist-ssr
 
 # Environment variables
 .env
-backend/.env
+# backend/.env - removido para permitir deploy no Easypanel
 
 # Editor directories and files
 .vscode/*
