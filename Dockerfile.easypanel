@@ -1,5 +1,5 @@
 # Dockerfile Monorepo - Frontend + Backend para EasyPanel
-FROM node:18-alpine as frontend-build
+FROM node:20-alpine as frontend-build
 
 # Instalar dependências do sistema
 RUN apk add --no-cache git
@@ -25,27 +25,30 @@ COPY landing-page.html ./
 
 # Configurar variáveis de ambiente para build
 ARG VITE_API_URL="/api"
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
 ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
 
 # Build da aplicação frontend
 RUN npm run build
 
 # Estágio de produção
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Instalar dependências do sistema
-RUN apk add --no-cache nginx wget dumb-init netcat-openbsd
+RUN apk add --no-cache dumb-init
 
 # Criar diretórios necessários
 WORKDIR /app
 
-# Copiar arquivos buildados do frontend
-COPY --from=frontend-build /app/dist /usr/share/nginx/html
-COPY --from=frontend-build /app/landing-page.html /usr/share/nginx/html/
+# Copiar arquivos buildados do frontend para servir via express
+COPY --from=frontend-build /app/dist ./public
+COPY --from=frontend-build /app/landing-page.html ./public/
 
 # Copiar backend
-COPY backend/package*.json ./backend/
-WORKDIR /app/backend
+COPY backend/package*.json ./
 RUN npm ci --only=production --silent && npm cache clean --force
 
 COPY backend/src/ ./src/
@@ -75,127 +78,26 @@ RUN echo "SUPABASE_URL=${SUPABASE_URL}" > .env && \
     echo "JWT_SECRET=${JWT_SECRET}" >> .env && \
     echo "JWT_EXPIRES_IN=${JWT_EXPIRES_IN}" >> .env && \
     echo "CORS_ORIGIN=${CORS_ORIGIN}" >> .env && \
-    echo "NODE_ENV=${NODE_ENV}" >> .env && \
-    echo "PORT=${PORT}" >> .env
-
-# Configuração do Nginx (limpar configs antigas e usar nova)
-RUN rm -f /etc/nginx/conf.d/default.conf /etc/nginx/sites-enabled/default
-COPY nginx.minimal.conf /etc/nginx/nginx.conf
+    echo "NODE_ENV=production" >> .env && \
+    echo "PORT=3000" >> .env
 
 # Criar usuário não-root
 RUN addgroup -g 1001 -S appuser && \
-    adduser -S appuser -u 1001 -G appuser
-
-# Criar diretórios nginx e ajustar permissões
-RUN mkdir -p /var/cache/nginx /var/run/nginx /var/log/nginx /var/lib/nginx/logs
-RUN touch /var/log/nginx/access.log /var/log/nginx/error.log
-RUN chown -R appuser:appuser /app /usr/share/nginx/html /var/cache/nginx /var/run/nginx /var/log/nginx /var/lib/nginx
-RUN chmod -R 755 /usr/share/nginx/html
-
-# Script de inicialização
-COPY <<EOF /app/start.sh
-#!/bin/sh
-echo "🚀 Starting InteliZap services..."
-
-# Mostrar variáveis de ambiente importantes
-echo "📋 Environment check:"
-echo "  DB_HOST: \$DB_HOST"
-echo "  DB_PORT: \$DB_PORT" 
-echo "  DB_NAME: \$DB_NAME"
-echo "  DB_USER: \$DB_USER"
-echo "  CORS_ORIGIN: \$CORS_ORIGIN"
-
-# Iniciar backend e capturar logs
-echo "📡 Starting backend on port 3001..."
-cd /app/backend
-PORT=3001 node src/server.js &
-BACKEND_PID=\$!
-
-# Aguardar e monitorar backend
-echo "⏳ Waiting for backend to start..."
-for i in \$(seq 1 30); do
-    if nc -z localhost 3001 2>/dev/null; then
-        echo "✅ Backend is ready on port 3001"
-        break
-    fi
-    echo "⏱️  Waiting for backend... (\$i/30)"
-    sleep 2
-    
-    # Verificar se backend morreu
-    if ! kill -0 \$BACKEND_PID 2>/dev/null; then
-        echo "❌ Backend crashed!"
-        exit 1
-    fi
-done
-
-# Verificar se conectou
-if ! nc -z localhost 3001 2>/dev/null; then
-    echo "❌ Backend not responding on port 3001"
-    exit 1
-fi
-
-# Testar configuração do nginx
-echo "🔧 Testing nginx configuration..."
-nginx -t
-
-if [ $? -ne 0 ]; then
-    echo "❌ Nginx configuration test failed!"
-    exit 1
-fi
-
-# Iniciar nginx
-echo "🌐 Starting nginx on port 3000..."
-nginx -g 'daemon off;' &
-NGINX_PID=$!
-
-# Aguardar nginx iniciar
-echo "⏳ Waiting for nginx to start..."
-for i in $(seq 1 10); do
-    if nc -z localhost 3000 2>/dev/null; then
-        echo "✅ Nginx is ready on port 3000"
-        break
-    fi
-    echo "⏱️  Waiting for nginx... ($i/10)"
-    sleep 1
-    
-    # Verificar se nginx morreu
-    if ! kill -0 $NGINX_PID 2>/dev/null; then
-        echo "❌ Nginx crashed! Error logs:"
-        cat /var/log/nginx/error.log
-        exit 1
-    fi
-done
-
-# Verificar se nginx está respondendo
-if ! nc -z localhost 3000 2>/dev/null; then
-    echo "❌ Nginx not responding on port 3000"
-    echo "📋 Nginx error logs:"
-    cat /var/log/nginx/error.log
-    exit 1
-fi
-
-echo "🎉 All services started successfully!"
-
-# Aguardar processos e mostrar logs em tempo real
-echo "📋 Following application logs..."
-tail -f /var/log/nginx/access.log &
-wait
-EOF
-
-RUN chmod +x /app/start.sh && chown appuser:appuser /app/start.sh
+    adduser -S appuser -u 1001 -G appuser && \
+    chown -R appuser:appuser /app
 
 # Usar usuário não-root
 USER appuser
 
-# Expor portas
+# Expor porta
 EXPOSE 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD node -e "fetch('http://localhost:3000/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
 # Usar dumb-init para melhor handling de sinais
 ENTRYPOINT ["dumb-init", "--"]
 
-# Comando para iniciar ambos os serviços
-CMD ["/app/start.sh"]
+# Iniciar o servidor
+CMD ["node", "src/server.js"]
