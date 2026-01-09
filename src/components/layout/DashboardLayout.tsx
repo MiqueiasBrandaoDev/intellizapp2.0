@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Outlet, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEvolutionGroupsContext } from '@/contexts/EvolutionGroupsContext';
 import {
   LayoutDashboard,
   Users,
@@ -13,13 +14,15 @@ import {
   Smartphone,
   Crown,
   Shield,
-  Sparkles
+  Sparkles,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 
 const DashboardLayout = () => {
   const { profile, signOut, isAuthenticated } = useAuth();
+  const { isConnected } = useEvolutionGroupsContext();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -93,6 +96,7 @@ const DashboardLayout = () => {
               .map((item) => {
                 const Icon = item.icon;
                 const isActive = isActiveRoute(item.href);
+                const showDisconnectedAlert = item.name === 'Conexão' && !isConnected;
 
                 return (
                   <Link
@@ -104,11 +108,15 @@ const DashboardLayout = () => {
                         ? 'bg-primary/20 text-primary'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                       }
+                      ${showDisconnectedAlert ? 'border border-yellow-500/50' : ''}
                     `}
                     onClick={() => setSidebarOpen(false)}
                   >
                     <Icon className="mr-3 h-5 w-5" />
                     {item.name}
+                    {showDisconnectedAlert && (
+                      <AlertTriangle className="ml-auto h-4 w-4 text-yellow-500 animate-pulse" />
+                    )}
                   </Link>
                 );
               })}

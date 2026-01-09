@@ -22,7 +22,6 @@ export const getGrupos = async (req, res) => {
       .range(offset, offset + parseInt(limit) - 1);
 
     if (error) {
-      console.error('Erro ao buscar grupos:', error);
       return res.status(500).json({
         success: false,
         message: 'Erro ao buscar grupos',
@@ -44,7 +43,6 @@ export const getGrupos = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erro ao buscar grupos:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
