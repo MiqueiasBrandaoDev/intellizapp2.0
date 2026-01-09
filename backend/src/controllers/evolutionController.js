@@ -17,8 +17,6 @@ export const connectInstance = async (req, res) => {
       });
     }
 
-    console.log('🔗 Connecting to Evolution API:', { instanceName });
-
     // First check if instance already exists
     const statusController = new AbortController();
     const statusTimeout = setTimeout(() => statusController.abort(), 15000); // 15 seconds timeout
@@ -44,7 +42,6 @@ export const connectInstance = async (req, res) => {
 
     // Check if instance is already connected
     if (existingInstance && existingInstance.connectionStatus === 'open') {
-      console.log('✅ Instance already connected:', instanceName);
       return res.json({
         success: true,
         message: 'WhatsApp já conectado',
@@ -55,8 +52,6 @@ export const connectInstance = async (req, res) => {
 
     // Create instance if it doesn't exist
     if (!existingInstance) {
-      console.log('📱 Creating new instance:', instanceName);
-      
       const createResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
         method: 'POST',
         headers: {
@@ -75,13 +70,10 @@ export const connectInstance = async (req, res) => {
       });
 
       if (!createResponse.ok) {
-        const errorData = await createResponse.text();
-        console.error('❌ Failed to create instance:', errorData);
         throw new Error('Falha ao criar instância');
       }
 
-      const createData = await createResponse.json();
-      console.log('✅ Instance created:', createData);
+      await createResponse.json();
     }
 
     // Connect to WhatsApp
@@ -98,7 +90,6 @@ export const connectInstance = async (req, res) => {
     }
 
     const connectData = await connectResponse.json();
-    console.log('🔗 Connect response:', connectData);
 
     // Check if already connected
     if (connectData.connectionStatus === 'open') {
@@ -127,15 +118,13 @@ export const connectInstance = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Evolution connect error:', error);
-    
     let errorMessage = 'Erro interno do servidor';
     if (error.name === 'AbortError') {
       errorMessage = 'Timeout ao conectar com WhatsApp. Tente novamente.';
     } else if (error.message) {
       errorMessage = error.message.replace(/Evolution API/gi, 'WhatsApp');
     }
-    
+
     res.status(500).json({
       success: false,
       message: errorMessage
@@ -147,13 +136,11 @@ export const getInstanceStatus = async (req, res) => {
   try {
     const { instanceName } = req.params;
 
-    console.log('🔍 Checking instance status:', instanceName);
-
-    // First try to get all instances and filter by name
+    // Busca apenas a instância específica usando connectionState (não fetchInstances)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 100000); // 15 seconds timeout
-    
-    const response = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    const response = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${instanceName}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -161,52 +148,41 @@ export const getInstanceStatus = async (req, res) => {
       },
       signal: controller.signal
     });
-    
+
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      console.error('❌ Failed to fetch instances:', response.status, response.statusText);
+      // Se a instância não existe, retorna not_found
+      if (response.status === 404) {
+        return res.json({
+          success: true,
+          connected: false,
+          state: 'not_found',
+          instance: null
+        });
+      }
       throw new Error('Falha ao verificar status da instância');
     }
 
-    const allInstances = await response.json();
-    console.log('📱 All instances:', allInstances);
+    const data = await response.json();
+    const state = data.instance?.state || data.state || 'disconnected';
+    const connected = state === 'open';
 
-    // Find the specific instance by name
-    const instance = allInstances.find(inst => 
-      inst.name === instanceName
-    );
-
-    if (instance) {
-      const connected = instance.connectionStatus === 'open';
-      console.log(`✅ Instance ${instanceName} found, connected: ${connected}, status: ${instance.connectionStatus}`);
-      
-      return res.json({
-        success: true,
-        connected,
-        state: instance.connectionStatus || 'disconnected',
-        instance: instance
-      });
-    }
-
-    console.log(`❌ Instance ${instanceName} not found`);
-    res.json({
+    return res.json({
       success: true,
-      connected: false,
-      state: 'not_found',
-      instance: null
+      connected,
+      state,
+      instance: data.instance || data
     });
 
   } catch (error) {
-    console.error('❌ Get instance status error:', error);
-    
     let errorMessage = 'Erro interno do servidor';
     if (error.name === 'AbortError') {
       errorMessage = 'Timeout ao verificar status do WhatsApp. Tente novamente.';
     } else if (error.message) {
       errorMessage = error.message.replace(/Evolution API/gi, 'WhatsApp');
     }
-    
+
     res.status(500).json({
       success: false,
       message: errorMessage
@@ -217,8 +193,6 @@ export const getInstanceStatus = async (req, res) => {
 export const disconnectInstance = async (req, res) => {
   try {
     const { instanceName } = req.params;
-
-    console.log('❌ Disconnecting instance:', instanceName);
 
     const response = await fetch(`${EVOLUTION_API_URL}/instance/logout/${instanceName}`, {
       method: 'DELETE',
@@ -233,7 +207,6 @@ export const disconnectInstance = async (req, res) => {
     }
 
     const data = await response.json();
-    console.log('🔌 Disconnect response:', data);
 
     res.json({
       success: true,
@@ -242,15 +215,13 @@ export const disconnectInstance = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Disconnect instance error:', error);
-    
     let errorMessage = 'Erro interno do servidor';
     if (error.name === 'AbortError') {
       errorMessage = 'Timeout ao desconectar WhatsApp. Tente novamente.';
     } else if (error.message) {
       errorMessage = error.message.replace(/Evolution API/gi, 'WhatsApp');
     }
-    
+
     res.status(500).json({
       success: false,
       message: errorMessage
@@ -264,36 +235,26 @@ const fetchWithRetry = async (url, options, maxRetries = 3) => {
     try {
       const response = await fetch(url, options);
       if (response.ok || response.status < 500) {
-        return response; // Return successful responses or client errors (don't retry 4xx)
+        return response;
       }
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     } catch (error) {
-      console.log(`🔄 Attempt ${i + 1}/${maxRetries} failed:`, error.message);
-      
       if (i === maxRetries - 1) {
-        throw error; // Last attempt failed
+        throw error;
       }
-      
       // Exponential backoff: 1s, 2s, 4s
       const delay = Math.pow(2, i) * 1000;
-      console.log(`⏳ Waiting ${delay}ms before retry...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 };
 
 export const getInstanceGroups = async (req, res) => {
-  console.log('=== EVOLUTION GROUPS REQUEST START ===');
-  console.log('Time:', new Date().toISOString());
-
   try {
     const { instanceName } = req.params;
     const { userId } = req.query;
 
-    console.log('📥 Request params:', { instanceName, userId });
-
     if (!userId) {
-      console.log('❌ userId missing');
       return res.status(400).json({
         success: false,
         message: 'userId é obrigatório'
@@ -305,7 +266,6 @@ export const getInstanceGroups = async (req, res) => {
     const cachedData = groupsCache.get(cacheKey);
 
     if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
-      console.log('🎯 Cache hit! Returning cached groups');
       return res.json({
         success: true,
         message: `${cachedData.data.length} grupos encontrados (cache)`,
@@ -314,11 +274,7 @@ export const getInstanceGroups = async (req, res) => {
       });
     }
 
-    console.log('🔧 EVOLUTION_API_URL:', EVOLUTION_API_URL || 'NOT SET');
-    console.log('🔑 EVOLUTION_API_KEY present:', !!EVOLUTION_API_KEY);
-
     // Verificar status da instância antes de buscar grupos
-    console.log('🔍 Verificando status da instância...');
     try {
       const statusResponse = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${instanceName}`, {
         method: 'GET',
@@ -330,10 +286,8 @@ export const getInstanceGroups = async (req, res) => {
 
       if (statusResponse.ok) {
         const statusData = await statusResponse.json();
-        console.log('📊 Status da instância:', statusData);
 
         if (statusData.instance?.state !== 'open') {
-          console.log('❌ Instância não conectada:', statusData.instance?.state);
           return res.status(400).json({
             success: false,
             message: 'WhatsApp desconectado. Por favor, escaneie o QR Code novamente para reconectar.',
@@ -341,10 +295,9 @@ export const getInstanceGroups = async (req, res) => {
             state: statusData.instance?.state || 'unknown'
           });
         }
-        console.log('✅ Instância conectada, buscando grupos...');
       }
     } catch (statusError) {
-      console.log('⚠️ Não foi possível verificar status, tentando buscar grupos mesmo assim...');
+      // Não foi possível verificar status, tenta buscar grupos mesmo assim
     }
 
     // Create AbortController for timeout - increased to 3 minutes for groups fetch
@@ -352,8 +305,6 @@ export const getInstanceGroups = async (req, res) => {
     const timeoutId = setTimeout(() => controller.abort(), 180000);
 
     try {
-      console.log('🔄 Fetching groups with retry logic...');
-      console.log('🌐 Full URL:', `${EVOLUTION_API_URL}/group/fetchAllGroups/${instanceName}?getParticipants=false`);
       const response = await fetchWithRetry(`${EVOLUTION_API_URL}/group/fetchAllGroups/${instanceName}?getParticipants=false`, {
         method: 'GET',
         headers: {
@@ -366,17 +317,13 @@ export const getInstanceGroups = async (req, res) => {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        const errorData = await response.text();
-        console.error('❌ Evolution API response error:', response.status, response.statusText, errorData);
         throw new Error(`Falha ao buscar grupos: ${response.status} ${response.statusText}`);
       }
 
       const groups = await response.json();
-      console.log(`📱 Found ${groups.length} groups`);
 
       // Check if groups is an array
       if (!Array.isArray(groups)) {
-        console.error('❌ Groups response is not an array:', groups);
         throw new Error('Formato de resposta inválido do WhatsApp');
       }
 
@@ -395,10 +342,7 @@ export const getInstanceGroups = async (req, res) => {
         data: formattedGroups,
         timestamp: Date.now()
       });
-      
-      console.log('💾 Groups cached successfully');
-      console.log('✅ Groups formatted successfully');
-      
+
       res.json({
         success: true,
         message: `${groups.length} grupos encontrados`,
@@ -416,15 +360,8 @@ export const getInstanceGroups = async (req, res) => {
     }
 
   } catch (error) {
-    console.log('=== EVOLUTION GROUPS ERROR ===');
-    console.log('❌ Error message:', error.message);
-    console.log('❌ Error name:', error.name);
-    console.log('❌ Error stack:', error.stack);
-    console.log('=== END ERROR LOG ===');
-    
-    // Send more detailed error information
     let errorMessage = 'Não foi possível buscar os grupos. Tente novamente.';
-    
+
     if (error.message.includes('Timeout') || error.message.includes('demorando')) {
       errorMessage = 'WhatsApp está demorando para responder. Tente novamente.';
     } else if (error.code === 'ECONNREFUSED') {
@@ -432,9 +369,7 @@ export const getInstanceGroups = async (req, res) => {
     } else if (error.name === 'AbortError') {
       errorMessage = 'Timeout ao buscar grupos. Tente novamente.';
     }
-    
-    console.log('📤 Returning error:', errorMessage);
-    
+
     res.status(500).json({
       success: false,
       message: errorMessage

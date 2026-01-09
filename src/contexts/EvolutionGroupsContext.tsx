@@ -50,7 +50,6 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
 
       // Se conectou, carrega os grupos automaticamente
       if (connected && profile?.id) {
-        console.log('✅ WhatsApp conectado! Carregando grupos automaticamente...');
         setShouldLoad(true);
         // Dispara evento para outros componentes
         window.dispatchEvent(new CustomEvent('whatsappConnected', {
@@ -66,22 +65,12 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
     }
   }, [instanceName, profile?.id]);
 
-  // Verificar conexão automaticamente ao iniciar
+  // Verificar conexão automaticamente ao iniciar (apenas uma vez)
   useEffect(() => {
-    if (isAuthenticated && instanceName && profile?.id) {
-      // Verifica conexão imediatamente
+    if (isAuthenticated && instanceName && profile?.id && !isConnected) {
       checkConnection();
-
-      // Configura intervalo para verificar conexão periodicamente (a cada 30s)
-      const connectionCheckInterval = setInterval(() => {
-        if (!isConnected) {
-          checkConnection();
-        }
-      }, 30000);
-
-      return () => clearInterval(connectionCheckInterval);
     }
-  }, [isAuthenticated, instanceName, profile?.id, checkConnection, isConnected]);
+  }, [isAuthenticated, instanceName, profile?.id]);
 
   // Query para carregar grupos da Evolution API
   const {
@@ -98,8 +87,8 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
     enabled: !!profile?.id && !!instanceName && instanceName.trim() !== '' && (shouldLoad || isAuthenticated),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes (renamed from cacheTime in v5)
-    refetchOnWindowFocus: true, // Recarregar quando a página ganhar foco
-    refetchOnMount: true, // Recarregar quando o componente for montado
+    refetchOnWindowFocus: false, // Desabilitado para evitar requisições desnecessárias
+    refetchOnMount: false, // Desabilitado para evitar requisições desnecessárias
     retry: (failureCount, error: any) => {
       // Retry até 2 vezes se for erro de timeout ou 500
       if (failureCount < 2) {
@@ -148,13 +137,12 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
     const handleUserLoggedIn = (event: CustomEvent) => {
       const { user: loggedUser } = event.detail;
       if (loggedUser?.nome) {
-        console.log('🚀 Iniciando carregamento de grupos após login...');
         preloadGroups(loggedUser.nome);
       }
     };
 
     window.addEventListener('userLoggedIn', handleUserLoggedIn as EventListener);
-    
+
     return () => {
       window.removeEventListener('userLoggedIn', handleUserLoggedIn as EventListener);
     };
