@@ -12,9 +12,10 @@ dist
 dist-ssr
 *.local
 
-# Environment variables
+# Environment variables (local only - não commitar!)
+# .env da raiz é commitado pois contém variáveis para produção
+backend/.env
 .env
-# backend/.env - removido para permitir deploy no Easypanel
 
 # Editor directories and files
 .vscode/*

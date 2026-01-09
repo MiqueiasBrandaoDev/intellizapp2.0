@@ -50,7 +50,9 @@ RUN npm ci --only=production --silent && npm cache clean --force
 
 COPY backend/src/ ./src/
 COPY backend/*.html ./
-COPY backend/.env ./.env
+
+# Copiar .env da raiz para o backend (variáveis compartilhadas)
+COPY .env ./.env
 
 # Configuração do Nginx (limpar configs antigas e usar nova)
 RUN rm -f /etc/nginx/conf.d/default.conf /etc/nginx/sites-enabled/default
