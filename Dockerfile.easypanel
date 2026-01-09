@@ -51,8 +51,32 @@ RUN npm ci --only=production --silent && npm cache clean --force
 COPY backend/src/ ./src/
 COPY backend/*.html ./
 
-# Copiar .env da raiz para o backend (variáveis compartilhadas)
-COPY .env ./.env
+# Criar .env a partir dos build args (variáveis vêm do Easypanel)
+ARG SUPABASE_URL
+ARG SUPABASE_ANON_KEY
+ARG SUPABASE_SERVICE_ROLE_KEY
+ARG SUPABASE_JWT_SECRET
+ARG EVOLUTION_API_URL
+ARG EVOLUTION_API_KEY
+ARG INTELLICHAT_WEBHOOK_URL
+ARG JWT_SECRET
+ARG JWT_EXPIRES_IN
+ARG CORS_ORIGIN
+ARG NODE_ENV
+ARG PORT
+
+RUN echo "SUPABASE_URL=${SUPABASE_URL}" > .env && \
+    echo "SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}" >> .env && \
+    echo "SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}" >> .env && \
+    echo "SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}" >> .env && \
+    echo "EVOLUTION_API_URL=${EVOLUTION_API_URL}" >> .env && \
+    echo "EVOLUTION_API_KEY=${EVOLUTION_API_KEY}" >> .env && \
+    echo "INTELLICHAT_WEBHOOK_URL=${INTELLICHAT_WEBHOOK_URL}" >> .env && \
+    echo "JWT_SECRET=${JWT_SECRET}" >> .env && \
+    echo "JWT_EXPIRES_IN=${JWT_EXPIRES_IN}" >> .env && \
+    echo "CORS_ORIGIN=${CORS_ORIGIN}" >> .env && \
+    echo "NODE_ENV=${NODE_ENV}" >> .env && \
+    echo "PORT=${PORT}" >> .env
 
 # Configuração do Nginx (limpar configs antigas e usar nova)
 RUN rm -f /etc/nginx/conf.d/default.conf /etc/nginx/sites-enabled/default
