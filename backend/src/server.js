@@ -1,8 +1,11 @@
+// Load environment variables FIRST (before any imports that use them)
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
 import { createConnection } from './config/database.js';
 
 // Import routes
@@ -16,9 +19,6 @@ import resumosRoutes from './routes/resumos.js';
 import healthRoutes from './routes/health.js';
 import adminRoutes from './routes/admin.js';
 import intellichatRoutes from './routes/intellichat.js';
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -49,9 +49,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Set server timeout to 3 minutes for long-running Evolution API calls
 app.use((req, res, next) => {
-  // Set timeout to 3 minutes for Evolution API routes
   if (req.path.includes('/evolution/') || req.path.includes('/api/evolution/')) {
-    console.log(`🕐 Setting 3-minute timeout for Evolution route: ${req.path}`);
     req.setTimeout(180000); // 3 minutes
     res.setTimeout(180000); // 3 minutes
   } else {

@@ -1,6 +1,6 @@
-// Evolution API configuration
-const EVOLUTION_API_URL = process.env.VITE_EVOLUTION_API_URL || process.env.EVOLUTION_API_URL || 'http://localhost:8080';
-const EVOLUTION_API_KEY = process.env.VITE_EVOLUTION_API_KEY || process.env.EVOLUTION_API_KEY || 'your-evolution-api-key';
+// Evolution API configuration - Prioriza variáveis do backend (sem VITE_)
+const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || process.env.VITE_EVOLUTION_API_URL || 'http://localhost:8080';
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || process.env.VITE_EVOLUTION_API_KEY || 'your-evolution-api-key';
 
 // Simple in-memory cache for Evolution API groups
 const groupsCache = new Map();
