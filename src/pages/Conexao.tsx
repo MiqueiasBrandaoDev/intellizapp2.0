@@ -29,7 +29,7 @@ interface ConnectionStatus {
 const Conexao = () => {
   const { profile, user } = useAuth();
   const { toast } = useToast();
-  const { checkConnection: checkEvolutionConnection, isLoading: groupsLoading } = useEvolutionGroupsContext();
+  const { checkConnection: checkEvolutionConnection, isLoading: groupsLoading, refetch: refetchGroups } = useEvolutionGroupsContext();
   const [status, setStatus] = useState<ConnectionStatus>({
     connected: false,
     instanceName: null,
@@ -181,13 +181,15 @@ const Conexao = () => {
           setTimerInterval(null);
         }
 
-        // Dispara verificação de conexão no contexto para carregar grupos
-        checkEvolutionConnection();
+        // Aguarda 2 segundos para conexão se estabilizar antes de buscar grupos
+        setTimeout(() => {
+          checkEvolutionConnection();
+        }, 2000);
 
         if (showToast) {
           toast({
             title: "WhatsApp conectado!",
-            description: "Sua instância já está ativa e conectada. Carregando grupos..."
+            description: "Sua instância já está ativa e conectada. Carregando grupos em instantes..."
           });
         }
       } else {
@@ -414,19 +416,41 @@ const Conexao = () => {
                 </div>
               </div>
 
-              <Button
-                variant="outline"
-                onClick={disconnectWhatsApp}
-                disabled={status.loading}
-                className="text-destructive hover:text-destructive"
-              >
-                {status.loading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <WifiOff className="mr-2 h-4 w-4" />
-                )}
-                Desconectar WhatsApp
-              </Button>
+              <div className="flex gap-2 justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    toast({
+                      title: "Buscando grupos...",
+                      description: "Aguarde enquanto buscamos seus grupos do WhatsApp."
+                    });
+                    refetchGroups();
+                  }}
+                  disabled={groupsLoading}
+                  className="cyber-button"
+                >
+                  {groupsLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Buscar Grupos
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={disconnectWhatsApp}
+                  disabled={status.loading}
+                  className="text-destructive hover:text-destructive"
+                >
+                  {status.loading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <WifiOff className="mr-2 h-4 w-4" />
+                  )}
+                  Desconectar WhatsApp
+                </Button>
+              </div>
             </div>
           )}
 

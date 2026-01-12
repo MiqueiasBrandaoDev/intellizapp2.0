@@ -31,9 +31,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Spinner } from '@/components/ui/ios-spinner';
-import { useGrupos } from '@/hooks/useGrupos';
+import { TransferGroupDialog } from '@/components/TransferGroupDialog';
+import { useIAPublicaGrupos, useCheckGrupoExists } from '@/hooks/useIAGrupos';
 import { useEvolutionGroupsContext } from '@/contexts/EvolutionGroupsContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { Grupo } from '@/types/database';
 
 // Tipo para resumo da IA Publica
 interface ResumoPublico {
@@ -55,6 +57,17 @@ const IAPublica = () => {
   const [updatingGroups, setUpdatingGroups] = useState<Set<string>>(new Set());
   const [addingGroupId, setAddingGroupId] = useState<string | null>(null);
 
+  // Estado para dialog de transferencia
+  const [transferDialog, setTransferDialog] = useState<{
+    open: boolean;
+    group: { nome_grupo: string; grupo_id_externo: string; participantes: number } | null;
+    existingGrupo: Grupo | null;
+  }>({
+    open: false,
+    group: null,
+    existingGrupo: null
+  });
+
   // Mock de resumos (depois conectar ao backend)
   const [resumos] = useState<ResumoPublico[]>([]);
 
@@ -68,7 +81,9 @@ const IAPublica = () => {
     createGrupo,
     isUpdating,
     isCreating,
-  } = useGrupos();
+  } = useIAPublicaGrupos();
+
+  const { checkGrupoExists } = useCheckGrupoExists();
 
   useEffect(() => {
     if (!isLoading && !isUpdating) {
@@ -177,8 +192,8 @@ const IAPublica = () => {
         updateGrupo({ id, data: { ludico: !currentStatus } }, {
           onSuccess: () => {
             toast({
-              title: "Modo ludico atualizado",
-              description: `Modo ludico ${!currentStatus ? 'ativado' : 'desativado'} com sucesso.`
+              title: "Estilo do resumo atualizado",
+              description: `Resumo ${!currentStatus ? 'descontraído' : 'formal'} ativado com sucesso.`
             });
             resolve(true);
           },
@@ -232,7 +247,7 @@ const IAPublica = () => {
     }
   };
 
-  const handleAddGrupoDirectly = (group: { nome_grupo: string; grupo_id_externo: string; participantes: number }) => {
+  const handleAddGrupoDirectly = async (group: { nome_grupo: string; grupo_id_externo: string; participantes: number }) => {
     // Protecao contra cliques multiplos
     if (!user || !profile || addingGroupId) return;
 
@@ -246,31 +261,95 @@ const IAPublica = () => {
       return;
     }
 
-    // Marcar que estamos adicionando este grupo
+    // Marcar que estamos verificando/adicionando este grupo
     setAddingGroupId(group.grupo_id_externo);
 
-    createGrupo({
-      nome_grupo: group.nome_grupo,
-      grupo_id_externo: group.grupo_id_externo,
-      usuario_id: profile.id,
-      ativo: true
+    try {
+      // Verificar se o grupo ja existe em alguma IA
+      const checkResult = await checkGrupoExists(group.grupo_id_externo);
+
+      if (checkResult.exists && checkResult.grupo) {
+        // Grupo existe
+        if (checkResult.isOculta) {
+          // Grupo esta na IA Oculta, perguntar se quer transferir
+          setTransferDialog({
+            open: true,
+            group,
+            existingGrupo: checkResult.grupo
+          });
+          setAddingGroupId(null);
+        } else {
+          // Grupo ja esta na IA Publica
+          toast({
+            variant: "destructive",
+            title: "Grupo ja cadastrado",
+            description: "Este grupo ja esta na IA Publica."
+          });
+          setAddingGroupId(null);
+        }
+      } else {
+        // Grupo nao existe, criar novo
+        const novoGrupo = {
+          nome_grupo: group.nome_grupo,
+          grupo_id_externo: group.grupo_id_externo,
+          usuario_id: profile.id,
+          ativo: true,
+          iaoculta: false
+        };
+        console.log('🟢 [IA Pública] Criando novo grupo:', novoGrupo);
+        createGrupo(novoGrupo, {
+          onSuccess: () => {
+            toast({
+              title: "Grupo adicionado",
+              description: `${group.nome_grupo} adicionado a IA Publica.`
+            });
+            setModalOpen(false);
+            setEvolutionSearchTerm('');
+            setAddingGroupId(null);
+          },
+          onError: (error: any) => {
+            toast({
+              variant: "destructive",
+              title: "Erro",
+              description: error?.message || "Nao foi possivel adicionar."
+            });
+            setAddingGroupId(null);
+          }
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Nao foi possivel verificar o grupo."
+      });
+      setAddingGroupId(null);
+    }
+  };
+
+  const handleConfirmTransfer = () => {
+    if (!transferDialog.existingGrupo) return;
+
+    // Atualizar o grupo para iaoculta = false (transferir para IA Publica)
+    updateGrupo({
+      id: transferDialog.existingGrupo.id,
+      data: { iaoculta: false }
     }, {
       onSuccess: () => {
         toast({
-          title: "Grupo adicionado",
-          description: `${group.nome_grupo} adicionado a IA Publica.`
+          title: "Grupo transferido",
+          description: `${transferDialog.group?.nome_grupo} foi transferido para a IA Publica.`
         });
+        setTransferDialog({ open: false, group: null, existingGrupo: null });
         setModalOpen(false);
         setEvolutionSearchTerm('');
-        setAddingGroupId(null);
       },
       onError: (error: any) => {
         toast({
           variant: "destructive",
           title: "Erro",
-          description: error?.message || "Nao foi possivel adicionar."
+          description: error?.message || "Nao foi possivel transferir o grupo."
         });
-        setAddingGroupId(null);
       }
     });
   };
@@ -335,6 +414,16 @@ const IAPublica = () => {
           Os resumos destes grupos serao enviados diretamente no grupo do WhatsApp
         </p>
       </div>
+
+      {/* Dialog de Transferencia */}
+      <TransferGroupDialog
+        open={transferDialog.open}
+        onOpenChange={(open) => setTransferDialog({ ...transferDialog, open })}
+        groupName={transferDialog.group?.nome_grupo || ''}
+        fromIA="Oculta"
+        toIA="Pública"
+        onConfirm={handleConfirmTransfer}
+      />
 
       {/* Tabs */}
       <Tabs defaultValue="grupos" className="w-full">
@@ -441,7 +530,7 @@ const IAPublica = () => {
                       ) : addingGroupId ? (
                         <div className="flex flex-col items-center justify-center py-8 space-y-4">
                           <Spinner size="lg" />
-                          <span className="text-sm text-muted-foreground">Adicionando grupo...</span>
+                          <span className="text-sm text-muted-foreground">Verificando grupo...</span>
                         </div>
                       ) : (
                         filteredEvolutionGroups.map((group, index) => (
@@ -559,7 +648,12 @@ const IAPublica = () => {
                             />
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Modo ludico</span>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">Resumo Descontraído</span>
+                              <span className="text-xs text-muted-foreground">
+                                {grupo.ludico ? 'Tom divertido e informal' : 'Tom sério e formal'}
+                              </span>
+                            </div>
                             <Switch
                               checked={Boolean(grupo.ludico)}
                               onCheckedChange={() => handleToggleLudico(grupo.id, Boolean(grupo.ludico))}

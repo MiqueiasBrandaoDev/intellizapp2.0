@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   Users,
   Search,
@@ -22,23 +23,12 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Spinner } from '@/components/ui/ios-spinner';
+import { TransferGroupDialog } from '@/components/TransferGroupDialog';
 import { useToast } from '@/hooks/use-toast';
+import { useIAOcultaGrupos, useCheckGrupoExists } from '@/hooks/useIAGrupos';
 import { useEvolutionGroupsContext } from '@/contexts/EvolutionGroupsContext';
-
-// Tipo para grupo da Evolution API
-interface EvolutionGroup {
-  nome_grupo: string;
-  grupo_id_externo: string;
-  usuario_id: string;
-  ativo: boolean;
-  participantes: number;
-  descricao: string | null;
-}
-
-// Tipo para grupo adicionado na IA Oculta
-interface IAOcultaGroup extends EvolutionGroup {
-  adicionado_em: string;
-}
+import { useAuth } from '@/contexts/AuthContext';
+import { Grupo, CreateGrupoData } from '@/types/database';
 
 // Mock de resumos para IA Oculta (depois conectar ao backend)
 interface ResumoOculto {
@@ -51,19 +41,41 @@ interface ResumoOculto {
 
 const IAOculta = () => {
   const { toast } = useToast();
+  const { profile } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [resumoSearchTerm, setResumoSearchTerm] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalSearchTerm, setModalSearchTerm] = useState('');
   const [addingGroupId, setAddingGroupId] = useState<string | null>(null);
 
-  // Estado local para grupos da IA Oculta (usando grupo_id_externo como identificador)
-  const [iaOcultaGroups, setIaOcultaGroups] = useState<IAOcultaGroup[]>([]);
+  // Estado para dialog de transferencia
+  const [transferDialog, setTransferDialog] = useState<{
+    open: boolean;
+    group: { nome_grupo: string; grupo_id_externo: string; participantes: number } | null;
+    existingGrupo: Grupo | null;
+  }>({
+    open: false,
+    group: null,
+    existingGrupo: null
+  });
 
-  // Mock de resumos
+  // Mock de resumos (depois conectar ao backend)
   const [resumos] = useState<ResumoOculto[]>([]);
 
-  // Usar grupos da Evolution API (WhatsApp)
+  const {
+    grupos: iaOcultaGroups,
+    isLoading,
+    error,
+    refetch,
+    createGrupo,
+    updateGrupo,
+    deleteGrupo,
+    isCreating,
+    isUpdating,
+  } = useIAOcultaGrupos();
+
+  const { checkGrupoExists } = useCheckGrupoExists();
+
   const {
     evolutionGroups,
     isLoading: evolutionLoading,
@@ -92,40 +104,182 @@ const IAOculta = () => {
     false
   );
 
-  const handleAddGroup = (grupo: EvolutionGroup) => {
+  const handleAddGroup = async (grupo: { nome_grupo: string; grupo_id_externo: string; participantes: number }) => {
     // Protecao contra cliques multiplos
     if (addingGroupId) return;
 
     setAddingGroupId(grupo.grupo_id_externo);
 
-    // Simular um pequeno delay para mostrar o loading (na versao real, seria uma chamada API)
-    setTimeout(() => {
-      const newGroup: IAOcultaGroup = {
-        ...grupo,
-        adicionado_em: new Date().toISOString()
-      };
-      setIaOcultaGroups(prev => [...prev, newGroup]);
-      setModalOpen(false);
-      setModalSearchTerm('');
-      setAddingGroupId(null);
+    try {
+      // Verificar se o grupo ja existe em alguma IA
+      const checkResult = await checkGrupoExists(grupo.grupo_id_externo);
+
+      if (checkResult.exists && checkResult.grupo) {
+        // Grupo existe
+        if (!checkResult.isOculta) {
+          // Grupo esta na IA Publica, perguntar se quer transferir
+          setTransferDialog({
+            open: true,
+            group: grupo,
+            existingGrupo: checkResult.grupo
+          });
+          setAddingGroupId(null);
+        } else {
+          // Grupo ja esta na IA Oculta
+          toast({
+            variant: "destructive",
+            title: "Grupo ja cadastrado",
+            description: "Este grupo ja esta na IA Oculta."
+          });
+          setAddingGroupId(null);
+        }
+      } else {
+        // Grupo nao existe, criar novo
+        // IMPORTANTE: Garantir que iaoculta seja true
+        const novoGrupo: CreateGrupoData = {
+          nome_grupo: grupo.nome_grupo,
+          grupo_id_externo: grupo.grupo_id_externo,
+          usuario_id: profile!.id,
+          ativo: true,
+          iaoculta: true  // CRÍTICO: IA Oculta deve ter iaoculta = true
+        };
+        console.log('🔵 [IA Oculta] Criando novo grupo COM IAOCULTA TRUE:', novoGrupo);
+        console.log('🔵 [IA Oculta] Valor de iaoculta:', novoGrupo.iaoculta);
+
+        createGrupo(novoGrupo, {
+          onSuccess: () => {
+            toast({
+              title: "Grupo adicionado",
+              description: `${grupo.nome_grupo} adicionado a IA Oculta.`
+            });
+            setModalOpen(false);
+            setModalSearchTerm('');
+            setAddingGroupId(null);
+            refetch(); // Força refetch para atualizar lista
+          },
+          onError: (error: any) => {
+            toast({
+              variant: "destructive",
+              title: "Erro",
+              description: error?.message || "Nao foi possivel adicionar."
+            });
+            setAddingGroupId(null);
+          }
+        });
+      }
+    } catch (error) {
       toast({
-        title: "Grupo adicionado",
-        description: `${grupo.nome_grupo} adicionado a IA Oculta.`
+        variant: "destructive",
+        title: "Erro",
+        description: "Nao foi possivel verificar o grupo."
       });
-    }, 500);
+      setAddingGroupId(null);
+    }
   };
 
-  const handleRemoveGroup = (grupoIdExterno: string) => {
-    setIaOcultaGroups(prev => prev.filter(g => g.grupo_id_externo !== grupoIdExterno));
+  const handleConfirmTransfer = () => {
+    if (!transferDialog.existingGrupo) return;
+
+    // Atualizar o grupo para iaoculta = true (transferir para IA Oculta)
+    updateGrupo({
+      id: transferDialog.existingGrupo.id,
+      data: { iaoculta: true }
+    }, {
+      onSuccess: () => {
+        toast({
+          title: "Grupo transferido",
+          description: `${transferDialog.group?.nome_grupo} foi transferido para a IA Oculta.`
+        });
+        setTransferDialog({ open: false, group: null, existingGrupo: null });
+        setModalOpen(false);
+        setModalSearchTerm('');
+      },
+      onError: (error: any) => {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: error?.message || "Nao foi possivel transferir o grupo."
+        });
+      }
+    });
+  };
+
+  const handleRemoveGroup = (id: string) => {
+    deleteGrupo(id);
     toast({
       title: "Grupo removido",
       description: "Grupo removido da IA Oculta."
     });
   };
 
-  const formatDate = (date: string) => {
+  const handleToggleLudico = (id: string, currentStatus: boolean) => {
+    updateGrupo(
+      { id, data: { ludico: !currentStatus } },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Estilo do resumo atualizado",
+            description: `Resumo ${!currentStatus ? 'descontraído' : 'formal'} ativado com sucesso.`
+          });
+        },
+        onError: (error: any) => {
+          toast({
+            variant: "destructive",
+            title: "Erro",
+            description: error?.message || "Não foi possível atualizar."
+          });
+        }
+      }
+    );
+  };
+
+  const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleString('pt-BR');
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold cyber-text flex items-center gap-3">
+            <Eye className="h-8 w-8 text-purple-500" />
+            IA Oculta
+          </h1>
+          <p className="text-muted-foreground">Carregando grupos...</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i} className="cyber-card animate-pulse">
+              <CardContent className="p-6">
+                <div className="space-y-3">
+                  <div className="h-4 bg-muted rounded w-3/4" />
+                  <div className="h-3 bg-muted rounded w-1/2" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold cyber-text flex items-center gap-3">
+            <Eye className="h-8 w-8 text-purple-500" />
+            IA Oculta
+          </h1>
+          <p className="text-red-400">Erro ao carregar grupos</p>
+        </div>
+        <Button onClick={() => refetch()}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -139,6 +293,16 @@ const IAOculta = () => {
           Os resumos destes grupos serao exibidos somente aqui no sistema
         </p>
       </div>
+
+      {/* Dialog de Transferencia */}
+      <TransferGroupDialog
+        open={transferDialog.open}
+        onOpenChange={(open) => setTransferDialog({ ...transferDialog, open })}
+        groupName={transferDialog.group?.nome_grupo || ''}
+        fromIA="Pública"
+        toIA="Oculta"
+        onConfirm={handleConfirmTransfer}
+      />
 
       {/* Tabs */}
       <Tabs defaultValue="grupos" className="w-full">
@@ -156,7 +320,7 @@ const IAOculta = () => {
         {/* Aba de Grupos */}
         <TabsContent value="grupos" className="space-y-4 mt-6">
           {/* Header com acoes */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex justify-between items-center">
             <div className="text-sm text-muted-foreground">
               {iaOcultaGroups.length} grupos monitorados
             </div>
@@ -225,7 +389,7 @@ const IAOculta = () => {
                     ) : addingGroupId ? (
                       <div className="flex flex-col items-center justify-center py-8 space-y-4">
                         <Spinner size="lg" />
-                        <span className="text-sm text-muted-foreground">Adicionando grupo...</span>
+                        <span className="text-sm text-muted-foreground">Verificando grupo...</span>
                       </div>
                     ) : (
                       filteredAvailableGroups.map((grupo, index) => (
@@ -276,7 +440,7 @@ const IAOculta = () => {
           {filteredIAOcultaGroups.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredIAOcultaGroups.map((grupo) => (
-                <Card key={grupo.grupo_id_externo} className="cyber-card">
+                <Card key={grupo.id} className="cyber-card">
                   <div className="flex items-center justify-between p-4 pb-2">
                     <div className="flex items-center space-x-2 min-w-0 flex-1">
                       <Users className="h-5 w-5 text-purple-500 flex-shrink-0" />
@@ -285,24 +449,38 @@ const IAOculta = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleRemoveGroup(grupo.grupo_id_externo)}
+                      onClick={() => handleRemoveGroup(grupo.id)}
                       className="text-red-500 hover:text-red-600"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                  <CardContent className="pt-0">
+
+                  <CardContent className="space-y-4 pt-0">
                     <div className="flex items-center justify-between text-sm">
                       <span className="flex items-center gap-2 text-muted-foreground">
                         <Calendar className="h-4 w-4" />
-                        Adicionado
+                        Adicionado em
                       </span>
-                      <span className="font-medium">
-                        {new Date(grupo.adicionado_em).toLocaleDateString('pt-BR')}
-                      </span>
+                      <span className="font-medium">{formatDate(grupo.criado_em)}</span>
                     </div>
-                    <div className="flex items-center justify-between mt-3">
-                      <Badge className="bg-purple-500/20 text-purple-400">
+
+                    <div className="flex items-center justify-between py-2 px-3 bg-muted/30 rounded-lg">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">Resumo Descontraído</span>
+                        <span className="text-xs text-muted-foreground">
+                          {grupo.ludico ? 'Tom divertido e informal' : 'Tom sério e formal'}
+                        </span>
+                      </div>
+                      <Switch
+                        checked={Boolean(grupo.ludico)}
+                        onCheckedChange={() => handleToggleLudico(grupo.id, Boolean(grupo.ludico))}
+                        disabled={isUpdating}
+                      />
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <Badge variant="secondary" className="bg-purple-500/20 text-purple-400">
                         Monitorando
                       </Badge>
                       <span className="text-xs text-muted-foreground">
@@ -317,14 +495,19 @@ const IAOculta = () => {
             <Card className="cyber-card">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Eye className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Nenhum grupo na IA Oculta</h3>
+                <h3 className="text-lg font-semibold mb-2">Nenhum grupo monitorado</h3>
                 <p className="text-muted-foreground text-center mb-4">
-                  Adicione grupos do WhatsApp para monitorar silenciosamente.
+                  {searchTerm
+                    ? 'Nenhum grupo corresponde a busca.'
+                    : 'Adicione grupos para comecar o monitoramento silencioso.'
+                  }
                 </p>
-                <Button onClick={() => setModalOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Adicionar Grupo
-                </Button>
+                {!searchTerm && (
+                  <Button onClick={() => setModalOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Adicionar Grupo
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
@@ -376,7 +559,7 @@ const IAOculta = () => {
                     ? 'Nenhum resumo corresponde a busca.'
                     : iaOcultaGroups.length === 0
                       ? 'Adicione grupos para gerar resumos.'
-                      : 'Os resumos serao gerados automaticamente.'
+                      : 'Os resumos serao gerados automaticamente e exibidos apenas aqui.'
                   }
                 </p>
               </CardContent>

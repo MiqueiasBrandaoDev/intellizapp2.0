@@ -29,6 +29,7 @@ export interface Grupo {
   transcricao_ativa: boolean;
   resumo_ativo: boolean;
   ludico: boolean;
+  iaoculta: boolean;
   criado_em: Date;
   updated_at?: Date;
 }
@@ -75,6 +76,7 @@ export interface CreateGrupoData {
   transcricao_ativa?: boolean;
   resumo_ativo?: boolean;
   ludico?: boolean;
+  iaoculta?: boolean;
 }
 
 export interface CreateMensagemData {

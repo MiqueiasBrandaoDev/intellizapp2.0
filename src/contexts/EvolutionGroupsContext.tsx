@@ -51,6 +51,8 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
       // Se conectou, carrega os grupos automaticamente
       if (connected && profile?.id) {
         setShouldLoad(true);
+        // Força refetch dos grupos
+        queryClient.invalidateQueries({ queryKey: ['evolutionGroups', instanceName, profile.id] });
         // Dispara evento para outros componentes
         window.dispatchEvent(new CustomEvent('whatsappConnected', {
           detail: { instanceName, connected: true }
@@ -63,7 +65,7 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
       setIsConnected(false);
       return false;
     }
-  }, [instanceName, profile?.id]);
+  }, [instanceName, profile?.id, queryClient]);
 
   // Verificar conexão automaticamente ao iniciar (apenas uma vez)
   useEffect(() => {
@@ -84,21 +86,23 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
     queryKey: ['evolutionGroups', instanceName, profile?.id],
     queryFn: () =>
       profile && instanceName ? apiService.getEvolutionGroups(instanceName, profile.id) : Promise.resolve(null),
-    enabled: !!profile?.id && !!instanceName && instanceName.trim() !== '' && (shouldLoad || isAuthenticated),
+    enabled: !!profile?.id && !!instanceName && instanceName.trim() !== '' && shouldLoad,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes (renamed from cacheTime in v5)
     refetchOnWindowFocus: false, // Desabilitado para evitar requisições desnecessárias
-    refetchOnMount: false, // Desabilitado para evitar requisições desnecessárias
+    refetchOnMount: true, // Habilitado para recarregar quando necessário
     retry: (failureCount, error: any) => {
-      // Retry até 2 vezes se for erro de timeout ou 500
-      if (failureCount < 2) {
+      // Retry até 3 vezes se for erro de conexão
+      if (failureCount < 3) {
         const isTimeoutError = error?.message?.includes('timeout') ||
                               error?.message?.includes('demorando') ||
                               error?.message?.includes('WhatsApp está demorando');
         const is500Error = error?.message?.includes('500') || error?.message?.includes('Internal Server Error');
+        const isConnectionError = error?.message?.includes('Network') ||
+                                 error?.message?.includes('Failed to fetch');
 
-        if (isTimeoutError || is500Error) {
-          console.log(`🔄 Retry ${failureCount + 1}/2 for Evolution Groups due to timeout/500 error`);
+        if (isTimeoutError || is500Error || isConnectionError) {
+          console.log(`🔄 Retry ${failureCount + 1}/3 for Evolution Groups due to connection error`);
           setIsRetrying(true);
           return true;
         }
@@ -106,7 +110,7 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
       setIsRetrying(false);
       return false;
     },
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff, max 30s
+    retryDelay: (attemptIndex) => Math.min(2000 * 2 ** attemptIndex, 10000), // Exponential backoff: 2s, 4s, 8s (max 10s)
   });
 
   // Handle success/error states (onSuccess/onError removed in React Query v5)
@@ -141,12 +145,26 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
       }
     };
 
+    const handleWhatsAppConnected = (event: CustomEvent) => {
+      console.log('🔔 WhatsApp conectado - forçando refetch de grupos');
+      const { instanceName: connectedInstance } = event.detail;
+      if (connectedInstance && profile?.id) {
+        setShouldLoad(true);
+        // Força refetch após conexão
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['evolutionGroups', connectedInstance, profile.id] });
+        }, 500);
+      }
+    };
+
     window.addEventListener('userLoggedIn', handleUserLoggedIn as EventListener);
+    window.addEventListener('whatsappConnected', handleWhatsAppConnected as EventListener);
 
     return () => {
       window.removeEventListener('userLoggedIn', handleUserLoggedIn as EventListener);
+      window.removeEventListener('whatsappConnected', handleWhatsAppConnected as EventListener);
     };
-  }, [preloadGroups]);
+  }, [preloadGroups, profile?.id, queryClient]);
 
   // Limpar cache quando o usuário fizer logout
   useEffect(() => {

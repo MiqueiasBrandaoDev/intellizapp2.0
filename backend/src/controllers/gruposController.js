@@ -91,9 +91,9 @@ export const getGrupo = async (req, res) => {
 
 export const createGrupo = async (req, res) => {
   try {
-    const { nome_grupo, grupo_id_externo, usuario_id, ativo = true, transcricao_ativa = false, resumo_ativo = true, ludico = false } = req.body;
+    const { nome_grupo, grupo_id_externo, usuario_id, ativo = true, transcricao_ativa = false, resumo_ativo = true, ludico = false, iaoculta = false } = req.body;
 
-    console.log('📥 Criando grupo:', { nome_grupo, grupo_id_externo, usuario_id });
+    console.log('📥 Criando grupo:', { nome_grupo, grupo_id_externo, usuario_id, iaoculta });
 
     // Validações
     if (!nome_grupo) {
@@ -158,7 +158,8 @@ export const createGrupo = async (req, res) => {
         ativo,
         transcricao_ativa,
         resumo_ativo,
-        ludico
+        ludico,
+        iaoculta
       }])
       .select()
       .single();
@@ -172,7 +173,7 @@ export const createGrupo = async (req, res) => {
       });
     }
 
-    console.log('✅ Grupo criado:', newGrupo);
+    console.log('✅ Grupo criado com iaoculta:', newGrupo.iaoculta, '| Grupo completo:', newGrupo);
 
     res.status(201).json({
       success: true,
