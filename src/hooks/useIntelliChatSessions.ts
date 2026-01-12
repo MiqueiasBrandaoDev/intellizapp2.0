@@ -1,3 +1,4 @@
+import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api';
 import { IntelliChatSession, IntelliChatMensagem } from '@/types/database';
@@ -8,6 +9,9 @@ export const useIntelliChatSessions = () => {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Cache do sessionId para evitar mudanças durante operações
+  const sessionIdRef = React.useRef<string | null>(null);
 
   // Get all user sessions
   const {
@@ -52,6 +56,14 @@ export const useIntelliChatSessions = () => {
     retry: 3, // Retry 3 times on failure
     retryDelay: 1000, // Wait 1s between retries
   });
+
+  // Manter o sessionId no ref sempre atualizado
+  React.useEffect(() => {
+    if (sessionData?.id) {
+      sessionIdRef.current = sessionData.id;
+      console.log('📌 SessionId cached in ref:', sessionIdRef.current);
+    }
+  }, [sessionData?.id]);
 
   // Get messages from active session
   const {
@@ -101,22 +113,27 @@ export const useIntelliChatSessions = () => {
   // Save message
   const saveMessageMutation = useMutation({
     mutationFn: async ({ role, content }: { role: 'user' | 'assistant'; content: string }) => {
-      console.log('💾 Tentando salvar mensagem. sessionData:', sessionData);
-      console.log('💾 sessionData.id:', sessionData?.id);
+      // Usar o sessionId do ref em vez do estado reativo
+      const currentSessionId = sessionIdRef.current || sessionData?.id;
 
-      if (!sessionData?.id) {
-        console.error('❌ sessionData não tem ID!', { sessionData, profile });
+      console.log('💾 Tentando salvar mensagem. sessionIdRef.current:', sessionIdRef.current);
+      console.log('💾 sessionData?.id:', sessionData?.id);
+      console.log('💾 currentSessionId usado:', currentSessionId);
+
+      if (!currentSessionId) {
+        console.error('❌ Nenhum sessionId disponível!', { sessionIdRef: sessionIdRef.current, sessionData, profile });
         throw new Error('Sessão não encontrada');
       }
 
-      console.log(`📤 Salvando mensagem ${role} na sessão ${sessionData.id}`);
-      const response = await apiService.saveMessage(sessionData.id, role, content);
+      console.log(`📤 Salvando mensagem ${role} na sessão ${currentSessionId}`);
+      const response = await apiService.saveMessage(currentSessionId, role, content);
       console.log('✅ Mensagem salva com sucesso:', response);
       return response.data;
     },
     onSuccess: () => {
-      console.log('✅ onSuccess: Invalidating queries para sessão:', sessionData?.id);
-      queryClient.invalidateQueries({ queryKey: ['intellichat-messages', sessionData?.id] });
+      const currentSessionId = sessionIdRef.current || sessionData?.id;
+      console.log('✅ onSuccess: Invalidating queries para sessão:', currentSessionId);
+      queryClient.invalidateQueries({ queryKey: ['intellichat-messages', currentSessionId] });
     },
     onError: (error: any) => {
       console.error('❌ Erro ao salvar mensagem:', error);
@@ -139,13 +156,20 @@ export const useIntelliChatSessions = () => {
       return;
     }
 
-    // New format with output/title-session
-    const conversationJson = {
-      output: messagesData.map((msg: IntelliChatMensagem) =>
-        msg.role === 'user' ? msg.content : `mensagens do agente, ${msg.content}`
-      ),
-      'title-session': sessionData?.titulo || 'Grupos da Conta'
-    };
+    // Format: array of objects with user/agent and timestamp
+    const conversationJson = messagesData.map((msg: IntelliChatMensagem) => {
+      const messageObj: any = {
+        timestamp: msg.criado_em
+      };
+
+      if (msg.role === 'user') {
+        messageObj.user = msg.content;
+      } else {
+        messageObj.agent = msg.content;
+      }
+
+      return messageObj;
+    });
 
     const blob = new Blob([JSON.stringify(conversationJson, null, 2)], {
       type: 'application/json',

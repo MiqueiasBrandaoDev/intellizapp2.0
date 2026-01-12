@@ -81,11 +81,15 @@ class ApiService {
       throw new Error('Sessão expirada. Por favor, faça login novamente.');
     }
 
-    // Set default timeout to 3 minutes for Evolution API calls
+    // Set default timeout - longer for Evolution and IntelliChat API calls
     const controller = new AbortController();
     const isEvolutionCall = endpoint.includes('/evolution/');
-    const timeoutMs = isEvolutionCall ? 180000 : 30000; // 3 minutes for Evolution, 30s for others
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const isIntelliChatCall = endpoint.includes('/intellichat');
+    const timeoutMs = (isEvolutionCall || isIntelliChatCall) ? 180000 : 30000; // 3 minutes for Evolution/IntelliChat, 30s for others
+    const timeoutId = setTimeout(() => {
+      console.error(`⏱️ Request timeout after ${timeoutMs}ms for ${endpoint}`);
+      controller.abort();
+    }, timeoutMs);
 
     const config: RequestInit = {
       ...options,
@@ -322,6 +326,12 @@ class ApiService {
     return this.request(`/api/intellichat-sessions/sessions/${sessionId}/title`, {
       method: 'PATCH',
       body: JSON.stringify({ titulo }),
+    });
+  }
+
+  async activateSession(sessionId: string): Promise<ApiResponse<IntelliChatSession>> {
+    return this.request(`/api/intellichat-sessions/sessions/${sessionId}/activate`, {
+      method: 'PATCH',
     });
   }
 

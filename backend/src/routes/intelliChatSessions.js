@@ -5,7 +5,8 @@ import {
   createNewSession,
   getSessionMessages,
   saveMessage,
-  updateSessionTitle
+  updateSessionTitle,
+  activateSession
 } from '../controllers/intelliChatSessionsController.js';
 import { authenticateToken } from '../middleware/auth.js';
 
@@ -25,6 +26,9 @@ router.post('/sessions/new', createNewSession);
 
 // Update session title
 router.patch('/sessions/:session_id/title', updateSessionTitle);
+
+// Activate a session
+router.patch('/sessions/:session_id/activate', activateSession);
 
 // Get messages from a session
 router.get('/sessions/:session_id/messages', getSessionMessages);

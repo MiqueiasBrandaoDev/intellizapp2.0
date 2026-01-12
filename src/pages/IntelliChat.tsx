@@ -41,6 +41,7 @@ export default function IntelliChat() {
     downloadConversation,
     refetchSession,
     refetchMessages,
+    refetchAllSessions,
   } = useIntelliChatSessions();
 
   const placeholders = [
@@ -266,17 +267,42 @@ export default function IntelliChat() {
   };
 
   const handleSelectSession = async (sessionId: string) => {
-    // Load messages from selected session
-    const sessionMessages = await apiService.getSessionMessages(sessionId);
-    if (sessionMessages.data) {
-      const loadedMessages: Message[] = sessionMessages.data.map((msg: IntelliChatMensagem) => ({
-        id: msg.id,
-        role: msg.role,
-        content: msg.content,
-        timestamp: new Date(msg.criado_em),
-      }));
-      setMessages(loadedMessages);
+    try {
+      console.log('🔄 Selecionando sessão:', sessionId);
+
+      // Activate the selected session
+      await apiService.activateSession(sessionId);
+      console.log('✅ Sessão ativada no backend');
+
+      // Load messages from selected session
+      const sessionMessages = await apiService.getSessionMessages(sessionId);
+      if (sessionMessages.data) {
+        const loadedMessages: Message[] = sessionMessages.data.map((msg: IntelliChatMensagem) => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          timestamp: new Date(msg.criado_em),
+        }));
+        setMessages(loadedMessages);
+        console.log(`✅ ${loadedMessages.length} mensagens carregadas`);
+      }
+
+      // Refetch sessions and active session to update the UI - AGUARDAR completar
+      console.log('🔄 Atualizando estado das sessões...');
+      await Promise.all([
+        refetchAllSessions(),
+        refetchSession()
+      ]);
+      console.log('✅ Estado atualizado. Nova sessão ativa:', sessionId);
+    } catch (error) {
+      console.error('❌ Erro ao selecionar sessão:', error);
     }
+  };
+
+  // Função para processar o conteúdo e substituir \n literais por quebras de linha reais
+  const formatMessageContent = (content: string): string => {
+    // Replace literal \n with actual line breaks
+    return content.replace(/\\n/g, '\n');
   };
 
   const handleVoiceRecordingComplete = useCallback(async () => {
@@ -411,7 +437,7 @@ export default function IntelliChat() {
                         : 'bg-muted'
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <p className="text-sm whitespace-pre-wrap">{formatMessageContent(message.content)}</p>
                     <span className="text-xs opacity-70 mt-2 block">
                       {message.timestamp.toLocaleTimeString('pt-BR', {
                         hour: '2-digit',

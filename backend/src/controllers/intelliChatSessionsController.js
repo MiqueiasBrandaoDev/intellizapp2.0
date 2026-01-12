@@ -283,3 +283,62 @@ export const updateSessionTitle = async (req, res) => {
     });
   }
 };
+
+// Activate a specific session
+export const activateSession = async (req, res) => {
+  try {
+    const { session_id } = req.params;
+
+    // First get the session to get usuario_id
+    const { data: session, error: getError } = await supabase
+      .from('intellichat_sessions')
+      .select('usuario_id')
+      .eq('id', session_id)
+      .single();
+
+    if (getError || !session) {
+      console.error('Erro ao buscar sessão:', getError);
+      return res.status(404).json({
+        success: false,
+        message: 'Sessão não encontrada',
+        error: getError?.message
+      });
+    }
+
+    // Deactivate all sessions for this user
+    await supabase
+      .from('intellichat_sessions')
+      .update({ ativa: false })
+      .eq('usuario_id', session.usuario_id);
+
+    // Activate the selected session
+    const { data: activatedSession, error: activateError } = await supabase
+      .from('intellichat_sessions')
+      .update({ ativa: true })
+      .eq('id', session_id)
+      .select()
+      .single();
+
+    if (activateError) {
+      console.error('Erro ao ativar sessão:', activateError);
+      return res.status(500).json({
+        success: false,
+        message: 'Erro ao ativar sessão',
+        error: activateError.message
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Sessão ativada com sucesso',
+      data: activatedSession
+    });
+
+  } catch (error) {
+    console.error('Erro ao ativar sessão:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor'
+    });
+  }
+};
