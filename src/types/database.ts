@@ -170,3 +170,37 @@ export interface PaginatedResponse<T> {
   };
   message?: string;
 }
+
+// IntelliChat Types
+export interface IntelliChatSession {
+  id: string;
+  usuario_id: string;
+  titulo?: string;
+  ativa: boolean;
+  criado_em: Date;
+  updated_at?: Date;
+}
+
+export interface IntelliChatMensagem {
+  id: string;
+  session_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  criado_em: Date;
+}
+
+export interface CreateIntelliChatSessionData {
+  usuario_id: string;
+  titulo?: string;
+  ativa?: boolean;
+}
+
+export interface CreateIntelliChatMensagemData {
+  session_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface IntelliChatSessionWithMessages extends IntelliChatSession {
+  mensagens?: IntelliChatMensagem[];
+}

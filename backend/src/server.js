@@ -19,6 +19,7 @@ import resumosRoutes from './routes/resumos.js';
 import healthRoutes from './routes/health.js';
 import adminRoutes from './routes/admin.js';
 import intellichatRoutes from './routes/intellichat.js';
+import intelliChatSessionsRoutes from './routes/intelliChatSessions.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -89,6 +90,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/resumos', resumosRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/intellichat', intellichatRoutes);
+app.use('/api/intellichat-sessions', intelliChatSessionsRoutes);
 app.use('/', healthRoutes);
 
 // SPA fallback - serve index.html para rotas do frontend (em produção)

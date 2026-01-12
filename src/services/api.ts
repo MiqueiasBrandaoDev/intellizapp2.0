@@ -13,7 +13,9 @@ import {
   RecentActivity,
   ApiResponse,
   PaginatedResponse,
-  GrupoWithMensagens
+  GrupoWithMensagens,
+  IntelliChatSession,
+  IntelliChatMensagem
 } from '@/types/database';
 import { supabase } from '@/lib/supabase';
 
@@ -21,8 +23,50 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === '
 
 class ApiService {
   private async getToken(): Promise<string | null> {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token || null;
+    try {
+      // First try to get the current session
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (error) {
+        console.error('❌ Error getting session:', error);
+        return null;
+      }
+
+      // If no session, return null
+      if (!session) {
+        console.warn('⚠️ No session found');
+        return null;
+      }
+
+      // Check if token is expired or about to expire (less than 5 minutes left)
+      const expiresAt = session.expires_at;
+      if (expiresAt) {
+        const now = Math.floor(Date.now() / 1000);
+        const timeUntilExpiry = expiresAt - now;
+
+        // If token expires in less than 5 minutes, refresh it
+        if (timeUntilExpiry < 300) {
+          console.log('🔄 Token expiring soon, refreshing...');
+          const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+
+          if (refreshError) {
+            console.error('❌ Error refreshing session:', refreshError);
+            // If refresh fails, try to use the old token anyway
+            return session.access_token;
+          }
+
+          if (refreshedSession) {
+            console.log('✅ Session refreshed successfully');
+            return refreshedSession.access_token;
+          }
+        }
+      }
+
+      return session.access_token;
+    } catch (error) {
+      console.error('❌ Exception in getToken:', error);
+      return null;
+    }
   }
 
   private async request<T>(
@@ -31,6 +75,11 @@ class ApiService {
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
     const token = await this.getToken();
+
+    if (!token && !endpoint.includes('/auth/')) {
+      console.error('❌ No token available for request:', endpoint);
+      throw new Error('Sessão expirada. Por favor, faça login novamente.');
+    }
 
     // Set default timeout to 3 minutes for Evolution API calls
     const controller = new AbortController();
@@ -49,18 +98,20 @@ class ApiService {
     };
 
     try {
+      console.log(`📤 Making request to: ${endpoint}`);
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         const error = await response.json();
+        console.error(`❌ Request failed [${endpoint}]:`, error);
         throw new Error(error.message || `HTTP ${response.status}`);
       }
 
       return await response.json();
     } catch (error) {
       clearTimeout(timeoutId);
-      console.error(`API Error [${endpoint}]:`, error);
+      console.error(`❌ API Error [${endpoint}]:`, error);
       throw error;
     }
   }
@@ -237,6 +288,40 @@ class ApiService {
     return this.request('/api/intellichat', {
       method: 'POST',
       body: JSON.stringify({ input }),
+    });
+  }
+
+  // IntelliChat Sessions endpoints
+  async getUserSessions(usuarioId: string): Promise<ApiResponse<IntelliChatSession[]>> {
+    return this.request(`/api/intellichat-sessions/sessions?usuario_id=${usuarioId}`);
+  }
+
+  async getOrCreateActiveSession(usuarioId: string): Promise<ApiResponse<IntelliChatSession>> {
+    return this.request(`/api/intellichat-sessions/sessions/active?usuario_id=${usuarioId}`);
+  }
+
+  async createNewSession(usuarioId: string): Promise<ApiResponse<IntelliChatSession>> {
+    return this.request('/api/intellichat-sessions/sessions/new', {
+      method: 'POST',
+      body: JSON.stringify({ usuario_id: usuarioId }),
+    });
+  }
+
+  async getSessionMessages(sessionId: string): Promise<ApiResponse<IntelliChatMensagem[]>> {
+    return this.request(`/api/intellichat-sessions/sessions/${sessionId}/messages`);
+  }
+
+  async saveMessage(sessionId: string, role: 'user' | 'assistant', content: string): Promise<ApiResponse<IntelliChatMensagem>> {
+    return this.request('/api/intellichat-sessions/messages', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId, role, content }),
+    });
+  }
+
+  async updateSessionTitle(sessionId: string, titulo: string): Promise<ApiResponse<IntelliChatSession>> {
+    return this.request(`/api/intellichat-sessions/sessions/${sessionId}/title`, {
+      method: 'PATCH',
+      body: JSON.stringify({ titulo }),
     });
   }
 
