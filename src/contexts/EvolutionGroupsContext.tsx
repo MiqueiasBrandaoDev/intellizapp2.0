@@ -37,7 +37,8 @@ export const EvolutionGroupsProvider: React.FC<{ children: React.ReactNode }> = 
   const [isRetrying, setIsRetrying] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
 
-  const instanceName = profile?.instancia || profile?.nome || '';
+  // Evolution API usa o nome como identificador da instância, não o UUID
+  const instanceName = profile?.nome || '';
 
   // Função para verificar conexão com WhatsApp
   const checkConnection = useCallback(async (): Promise<boolean> => {

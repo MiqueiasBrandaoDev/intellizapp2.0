@@ -41,9 +41,10 @@ const Conexao = () => {
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Load user instance from database on component mount
+  // Evolution API usa o nome como identificador da instância, não o UUID
   useEffect(() => {
-    if (profile?.instancia || profile?.nome) {
-      const instanceName = profile.instancia || profile.nome;
+    if (profile?.nome) {
+      const instanceName = profile.nome;
       setStatus(prev => ({
         ...prev,
         instanceName, // Usando instancia ou nome do usuário como nome da instância
