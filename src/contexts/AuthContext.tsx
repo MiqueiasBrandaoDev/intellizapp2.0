@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { User, Session } from '@supabase/supabase-js';
+import { apiService } from '@/services/api';
 
 interface UserProfile {
   id: string;
@@ -340,6 +341,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+
+      // Limpa cache do token na API
+      apiService.clearTokenCache();
 
       setUser(null);
       setProfile(null);

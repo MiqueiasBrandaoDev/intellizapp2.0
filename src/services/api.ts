@@ -22,7 +22,38 @@ import { supabase } from '@/lib/supabase';
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === 'production' ? '' : 'http://localhost:3001');
 
 class ApiService {
+  private tokenCache: { token: string | null; expiresAt: number } | null = null;
+  private tokenPromise: Promise<string | null> | null = null;
+
   private async getToken(): Promise<string | null> {
+    // Se já tem um token válido em cache, usa ele (evita múltiplas chamadas ao Supabase)
+    if (this.tokenCache && Date.now() < this.tokenCache.expiresAt) {
+      return this.tokenCache.token;
+    }
+
+    // Se já tem uma requisição de token em andamento, aguarda ela (evita race conditions)
+    if (this.tokenPromise) {
+      return this.tokenPromise;
+    }
+
+    // Cria uma nova requisição de token
+    this.tokenPromise = this.fetchToken();
+
+    try {
+      const token = await this.tokenPromise;
+      return token;
+    } finally {
+      this.tokenPromise = null;
+    }
+  }
+
+  // Método público para limpar cache (útil após logout)
+  public clearTokenCache(): void {
+    this.tokenCache = null;
+    this.tokenPromise = null;
+  }
+
+  private async fetchToken(): Promise<string | null> {
     try {
       // First try to get the current session
       const { data: { session }, error } = await supabase.auth.getSession();
@@ -44,6 +75,12 @@ class ApiService {
         const now = Math.floor(Date.now() / 1000);
         const timeUntilExpiry = expiresAt - now;
 
+        // Cache o token com margem de segurança (4 minutos antes de expirar, mínimo 30s)
+        this.tokenCache = {
+          token: session.access_token,
+          expiresAt: Date.now() + Math.max((timeUntilExpiry - 240) * 1000, 30000)
+        };
+
         // If token expires in less than 5 minutes, refresh it
         if (timeUntilExpiry < 300) {
           console.log('🔄 Token expiring soon, refreshing...');
@@ -57,9 +94,22 @@ class ApiService {
 
           if (refreshedSession) {
             console.log('✅ Session refreshed successfully');
+            // Atualiza cache com novo token
+            const newExpiresAt = refreshedSession.expires_at || 0;
+            const newTimeUntilExpiry = newExpiresAt - Math.floor(Date.now() / 1000);
+            this.tokenCache = {
+              token: refreshedSession.access_token,
+              expiresAt: Date.now() + Math.max((newTimeUntilExpiry - 240) * 1000, 30000)
+            };
             return refreshedSession.access_token;
           }
         }
+      } else {
+        // Se não tem expiresAt, cache por 5 minutos
+        this.tokenCache = {
+          token: session.access_token,
+          expiresAt: Date.now() + 5 * 60 * 1000
+        };
       }
 
       return session.access_token;
