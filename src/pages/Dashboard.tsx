@@ -1,329 +1,409 @@
 import React from 'react';
-
-// Helper function to format dates correctly (avoiding UTC interpretation)
-const formatDateLocal = (dateString: string) => {
-  if (!dateString) return 'Data não disponível';
-  try {
-    // Cria uma nova data tratando como horário local e adiciona 3h para ajustar UTC-3
-    const date = new Date(dateString.replace(' ', 'T'));
-    const adjustedDate = new Date(date.getTime() + (3 * 60 * 60 * 1000)); // +3h para compensar UTC-3
-    return adjustedDate.toLocaleString('pt-BR');
-  } catch (error) {
-    return 'Data inválida';
-  }
-};
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDashboardStats, useRecentActivity, useSystemInsights } from '@/hooks/useDashboard';
-import { useGrupos } from '@/hooks/useGrupos';
-import { 
-  Users, 
-  FileText, 
-  Clock, 
+import {
+  Users,
+  FileText,
+  Clock,
   Activity,
   Bot,
   Zap,
   TrendingUp,
-  BarChart3,
-  AlertCircle,
   MessageSquare,
-  BookOpen
+  BookOpen,
+  Sparkles,
+  ArrowUpRight,
+  Coins
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+// Helper function to format time ago
+const formatTimeAgo = (dateString: string) => {
+  if (!dateString) return '';
+  try {
+    const date = new Date(dateString.replace(' ', 'T'));
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 60) return `${diffMins}min atrás`;
+    if (diffHours < 24) return `${diffHours}h atrás`;
+    return `${diffDays}d atrás`;
+  } catch {
+    return '';
+  }
+};
 
 const Dashboard = () => {
   const { profile } = useAuth();
-  
-  // Fetch real data from API
-  const { data: stats, isLoading: statsLoading, error: statsError } = useDashboardStats();
-  const { data: recentActivity, isLoading: activityLoading } = useRecentActivity(4);
+
+  const { data: stats, isLoading: statsLoading } = useDashboardStats();
+  const { data: recentActivity, isLoading: activityLoading } = useRecentActivity(5);
   const { data: insights, isLoading: insightsLoading } = useSystemInsights();
 
+  // Calcular ResumeCoins
+  const coinsDisponiveis = Math.floor((profile?.tokens_mes || 0) / 1000);
+
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold cyber-text">
-          Dashboard
-        </h1>
-        <p className="text-muted-foreground">
-          Bem-vindo de volta, {profile?.nome}! Aqui está um resumo da sua conta.
-        </p>
-      </div>
+    <div className="relative min-h-full">
+      <div className="space-y-8">
+        {/* Header com Greeting */}
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-muted-foreground text-sm">
+              {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
+            <h1 className="text-3xl md:text-4xl font-bold">
+              Olá, <span className="cyber-text">{profile?.nome?.split(' ')[0]}</span>
+            </h1>
+            <p className="text-muted-foreground">
+              Aqui está o que está acontecendo com seus grupos hoje.
+            </p>
+          </div>
 
-      {/* Status Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <Card className="cyber-card min-h-[120px]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Grupos</CardTitle>
-            <Users className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
+          {/* Quick Actions + ResumeCoins Tag */}
+          <div className="flex items-center gap-3">
+            {/* ResumeCoins Tag */}
+            <Link
+              to="/dashboard/meu-plano"
+              className="glass-pill flex items-center gap-2 text-sm hover:bg-yellow-500/20 transition-all cursor-pointer border-yellow-500/30"
+            >
+              <Coins className="w-4 h-4 text-yellow-500" />
+              <span className="font-semibold text-yellow-500">{coinsDisponiveis.toLocaleString()}</span>
+              <span className="text-muted-foreground text-xs">coins</span>
+            </Link>
+            <Link
+              to="/dashboard/intellichat"
+              className="glass-pill flex items-center gap-2 text-sm hover:bg-white/20 transition-all cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-primary" />
+              ResumeChat
+            </Link>
+            <Link
+              to="/dashboard/ia-publica"
+              className="glass-pill flex items-center gap-2 text-sm hover:bg-white/20 transition-all cursor-pointer"
+            >
+              <Users className="w-4 h-4 text-secondary" />
+              Grupos
+            </Link>
+          </div>
+        </div>
+
+        {/* Main Stats - Bento Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Total Grupos - Large Card */}
+          <div className="col-span-2 glass-card-hover p-6 glass-glow">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-muted-foreground text-sm mb-1">Total de Grupos</p>
+                {statsLoading ? (
+                  <Skeleton className="h-12 w-24" />
+                ) : (
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-5xl font-bold stat-number">{stats?.totalGroups || 0}</span>
+                    <span className="text-muted-foreground">/ {profile?.max_grupos || 0}</span>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  {stats?.activeGroups || 0} ativos agora
+                </p>
+              </div>
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5">
+                <Users className="w-8 h-8 text-primary" />
+              </div>
+            </div>
+
+            {/* Mini Progress */}
+            <div className="mt-4">
+              <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-1000"
+                  style={{ width: `${((stats?.totalGroups || 0) / (profile?.max_grupos || 1)) * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Resumos Enviados */}
+          <div className="glass-card-hover p-5 glass-glow">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5">
+                <FileText className="w-5 h-5 text-accent" />
+              </div>
+              {stats?.resumosHoje ? (
+                <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                  +{stats.resumosHoje} hoje
+                </Badge>
+              ) : null}
+            </div>
             {statsLoading ? (
               <Skeleton className="h-8 w-16" />
-            ) : statsError ? (
-              <div className="text-2xl font-bold text-destructive">--</div>
             ) : (
-              <div className="text-2xl font-bold">{stats?.totalGroups || 0}</div>
+              <p className="text-3xl font-bold stat-number">{stats?.totalResumes || 0}</p>
             )}
-            <p className="text-xs text-muted-foreground">
-              Total de grupos cadastrados
-            </p>
-          </CardContent>
-        </Card>
+            <p className="text-xs text-muted-foreground mt-1">Resumos enviados</p>
+          </div>
 
-        <Card className="cyber-card min-h-[120px]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Grupos Ativos</CardTitle>
-            <Activity className="h-4 w-4 text-secondary" />
-          </CardHeader>
-          <CardContent>
+          {/* Mensagens Processadas */}
+          <div className="glass-card-hover p-5 glass-glow">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-secondary/20 to-secondary/5">
+                <TrendingUp className="w-5 h-5 text-secondary" />
+              </div>
+              {stats?.mensagensHoje ? (
+                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+                  +{stats.mensagensHoje}
+                </Badge>
+              ) : null}
+            </div>
             {statsLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : statsError ? (
-              <div className="text-2xl font-bold text-destructive">--</div>
+              <Skeleton className="h-8 w-20" />
             ) : (
-              <div className="text-2xl font-bold">{stats?.activeGroups || 0}</div>
+              <p className="text-3xl font-bold stat-number">
+                {(stats?.messagesProcessed || 0).toLocaleString()}
+              </p>
             )}
-            <p className="text-xs text-muted-foreground">
-              {stats?.totalGroups && stats?.activeGroups
-                ? `${((stats.activeGroups / stats.totalGroups) * 100).toFixed(0)}% do total`
-                : 'Grupos ativos'
-              }
-            </p>
-          </CardContent>
-        </Card>
+            <p className="text-xs text-muted-foreground mt-1">Mensagens lidas</p>
+          </div>
+        </div>
 
-        <Card className="cyber-card min-h-[120px]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Resumos Enviados</CardTitle>
-            <FileText className="h-4 w-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            {statsLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : statsError ? (
-              <div className="text-2xl font-bold text-destructive">--</div>
-            ) : (
-              <div className="text-2xl font-bold">{stats?.totalResumes || 0}</div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              {stats?.resumosHoje ? `+${stats.resumosHoje} hoje` : 'Total de resumos'}
-            </p>
-          </CardContent>
-        </Card>
+        {/* Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* Atividade Recente - Maior */}
+          <div className="lg:col-span-3 glass-card p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5">
+                  <Activity className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="font-semibold">Atividade Recente</h2>
+                  <p className="text-xs text-muted-foreground">Últimos resumos enviados</p>
+                </div>
+              </div>
+              <Link
+                to="/dashboard/ia-publica"
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+              >
+                Ver todos <ArrowUpRight className="w-3 h-3" />
+              </Link>
+            </div>
 
-        <Card className="cyber-card min-h-[120px]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Mensagens Processadas</CardTitle>
-            <TrendingUp className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            {statsLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : statsError ? (
-              <div className="text-2xl font-bold text-destructive">--</div>
-            ) : (
-              <div className="text-2xl font-bold">{stats?.messagesProcessed || 0}</div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              {stats?.mensagensHoje ? `+${stats.mensagensHoje} hoje` : 'Total de mensagens'}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* Recent Activity */}
-        <Card className="cyber-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />
-              Atividade Recente
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
             {activityLoading ? (
               <div className="space-y-4">
-                {[...Array(4)].map((_, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <Skeleton className="w-2 h-2 rounded-full" />
-                      <div className="space-y-1">
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-3 w-20" />
-                      </div>
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-4">
+                    <Skeleton className="w-10 h-10 rounded-xl" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-1/3" />
+                      <Skeleton className="h-3 w-1/4" />
                     </div>
-                    <Skeleton className="h-5 w-16" />
                   </div>
                 ))}
               </div>
             ) : !recentActivity?.length ? (
-              <div className="text-center py-4">
-                <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  Nenhuma atividade recente
+              <div className="text-center py-12">
+                <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-4">
+                  <Clock className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <p className="text-muted-foreground">Nenhuma atividade ainda</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Os resumos aparecerão aqui quando forem gerados
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {recentActivity.map((activity, index) => (
-                  <div key={activity.id || index} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  <div
+                    key={activity.id || index}
+                    className="glass-stat p-4 flex items-center justify-between hover:bg-white/10 transition-all cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-transparent flex items-center justify-center">
+                          <MessageSquare className="w-5 h-5 text-primary" />
+                        </div>
+                        {activity.status === 'enviado' && (
+                          <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
+                        )}
+                      </div>
                       <div>
-                        <p className="text-sm font-medium">{activity.grupo_nome}</p>
+                        <p className="font-medium group-hover:text-primary transition-colors">
+                          {activity.grupo_nome}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          {formatDateLocal(activity.data_envio)}
-                          {activity.total_mensagens && ` • ${activity.total_mensagens} mensagens`}
+                          {activity.total_mensagens && `${activity.total_mensagens} mensagens • `}
+                          {formatTimeAgo(activity.data_envio)}
                         </p>
                       </div>
                     </div>
-                    <Badge 
-                      variant={
-                        activity.status === 'enviado' 
-                          ? 'default' 
-                          : activity.status === 'erro' 
-                            ? 'destructive' 
-                            : 'secondary'
+                    <Badge
+                      variant="secondary"
+                      className={
+                        activity.status === 'enviado'
+                          ? 'bg-green-500/10 text-green-400 border-green-500/20'
+                          : activity.status === 'erro'
+                            ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                            : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
                       }
-                      className="text-xs"
                     >
-                      {activity.status === 'enviado' ? 'Enviado' : 
+                      {activity.status === 'enviado' ? 'Enviado' :
                        activity.status === 'erro' ? 'Erro' : 'Pendente'}
                     </Badge>
                   </div>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* System Insights */}
-        <Card className="cyber-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-secondary" />
-              Insights do Sistema
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {insightsLoading ? (
-              <div className="space-y-4">
-                {[...Array(4)].map((_, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <Skeleton className="w-6 h-6 rounded" />
-                      <div className="space-y-1">
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-3 w-20" />
-                      </div>
-                    </div>
-                    <Skeleton className="h-5 w-16" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-4">
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <MessageSquare className="h-5 w-5 text-blue-500" />
-                    <div>
-                      <p className="text-sm font-medium">Grupo Mais Ativo</p>
-                      <p className="text-xs text-muted-foreground">
-                        {insights?.mostActiveGroupMessages || 0} mensagens
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-xs text-right">
-                    <div className="font-medium">{insights?.mostActiveGroup}</div>
-                  </div>
+          {/* Insights - Menor */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Status do Sistema */}
+            <div className="glass-card p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-secondary/20 to-secondary/5">
+                  <Bot className="w-5 h-5 text-secondary" />
                 </div>
+                <div>
+                  <h2 className="font-semibold">Status</h2>
+                  <p className="text-xs text-muted-foreground">Sua conta</p>
+                </div>
+              </div>
 
+              <div className="space-y-4">
+                {/* Plano */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <TrendingUp className="h-5 w-5 text-orange-500" />
-                    <div>
-                      <p className="text-sm font-medium">Média Diária</p>
-                      <p className="text-xs text-muted-foreground">
-                        Últimos 7 dias
-                      </p>
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2.5 h-2.5 rounded-full ${profile?.plano_ativo ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                    <span className="text-sm">Plano</span>
                   </div>
-                  <Badge variant="outline" className="text-xs">
-                    {insights?.avgMessagesPerDay || 0} msg/dia
+                  <Badge variant="outline" className={profile?.plano_ativo ? 'border-green-500/30 text-green-400' : 'border-red-500/30 text-red-400'}>
+                    {profile?.plano_ativo ? 'Ativo' : 'Inativo'}
                   </Badge>
                 </div>
 
-                {insights?.lastResumeTime && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <BookOpen className="h-5 w-5 text-purple-500" />
-                      <div>
-                        <p className="text-sm font-medium">Último Resumo</p>
-                        <p className="text-xs text-muted-foreground">
-                          {insights?.lastResumeGroup}
-                        </p>
+                {/* Instância */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Zap className="w-4 h-4 text-primary" />
+                    <span className="text-sm">Instância</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground truncate max-w-[120px]">
+                    {profile?.instancia || 'Não config.'}
+                  </span>
+                </div>
+
+                {/* Hora do Resumo */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-4 h-4 text-secondary" />
+                    <span className="text-sm">Próximo resumo</span>
+                  </div>
+                  <span className="text-xs font-mono bg-white/5 px-2 py-1 rounded">
+                    {profile?.horaResumo || '09:00'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Insights */}
+            <div className="glass-card p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5">
+                  <TrendingUp className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <h2 className="font-semibold">Insights</h2>
+                  <p className="text-xs text-muted-foreground">Últimos 7 dias</p>
+                </div>
+              </div>
+
+              {insightsLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Grupo mais ativo */}
+                  {insights?.mostActiveGroup && (
+                    <div className="glass-stat p-3">
+                      <div className="flex items-center gap-3">
+                        <MessageSquare className="w-4 h-4 text-blue-400" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground">Mais ativo</p>
+                          <p className="text-sm font-medium truncate">{insights.mostActiveGroup}</p>
+                        </div>
+                        <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-1 rounded">
+                          {insights.mostActiveGroupMessages} msg
+                        </span>
                       </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatDateLocal(insights.lastResumeTime)}
+                  )}
+
+                  {/* Média diária */}
+                  <div className="glass-stat p-3">
+                    <div className="flex items-center gap-3">
+                      <TrendingUp className="w-4 h-4 text-orange-400" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Média diária</p>
+                        <p className="text-sm font-medium">{insights?.avgMessagesPerDay || 0} mensagens/dia</p>
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Account Status */}
-      <Card className="cyber-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-accent" />
-            Status da Conta
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-            <div className="flex items-center space-x-3">
-              <div className={`
-                w-3 h-3 rounded-full
-                ${profile?.plano_ativo ? 'bg-green-500' : 'bg-red-500'}
-              `} />
-              <div>
-                <p className="text-sm font-medium">Plano</p>
-                <p className="text-xs text-muted-foreground">
-                  {profile?.plano_ativo ? 'Ativo' : 'Inativo'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-3">
-              <Zap className="h-4 w-4 text-primary" />
-              <div>
-                <p className="text-sm font-medium">Instância</p>
-                <p className="text-xs text-muted-foreground">
-                  {profile?.instancia || 'Não configurada'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-3">
-              <Clock className="h-4 w-4 text-secondary" />
-              <div>
-                <p className="text-sm font-medium">Próximo Resumo</p>
-                <p className="text-xs text-muted-foreground">
-                  {profile?.horaResumo || '09:00'}
-                </p>
-              </div>
+                  {/* Último resumo */}
+                  {insights?.lastResumeTime && (
+                    <div className="glass-stat p-3">
+                      <div className="flex items-center gap-3">
+                        <BookOpen className="w-4 h-4 text-purple-400" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground">Último resumo</p>
+                          <p className="text-sm font-medium truncate">{insights.lastResumeGroup}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Quick Access Footer */}
+        <div className="glass-card p-4">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
+            <Link
+              to="/dashboard/settings"
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span>Configurações</span>
+              <ArrowUpRight className="w-3 h-3" />
+            </Link>
+            <span className="text-muted-foreground/30">•</span>
+            <Link
+              to="/dashboard/conexao"
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span>Conexão WhatsApp</span>
+              <ArrowUpRight className="w-3 h-3" />
+            </Link>
+            <span className="text-muted-foreground/30">•</span>
+            <Link
+              to="/dashboard/meu-plano"
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span>Meu Plano</span>
+              <ArrowUpRight className="w-3 h-3" />
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
