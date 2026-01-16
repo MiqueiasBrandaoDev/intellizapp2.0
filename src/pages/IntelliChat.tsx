@@ -346,7 +346,7 @@ export default function IntelliChat() {
               <Sparkles className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">IntelliChat</h1>
+              <h1 className="text-xl font-bold">ResumeChat</h1>
               <p className="text-xs text-muted-foreground">
                 Converse com sua inteligência artificial
               </p>

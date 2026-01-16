@@ -58,7 +58,7 @@ const Login = () => {
       navigate('/dashboard');
       toast({
         title: "Login realizado com sucesso!",
-        description: "Bem-vindo ao Intellizapp.IA"
+        description: "Bem-vindo ao Resumefy"
       });
     } catch (error: any) {
       toast({
@@ -109,7 +109,7 @@ const Login = () => {
           {/* Title */}
           <div className="space-y-2">
             <CardTitle className="text-3xl font-bold cyber-text">
-              Intellizapp.IA
+              Resumefy
             </CardTitle>
             <CardDescription className="text-muted-foreground text-base">
               Automatize seus grupos de WhatsApp com IA
@@ -241,7 +241,7 @@ const Login = () => {
 
       {/* Footer */}
       <div className="absolute bottom-4 text-center text-xs text-muted-foreground/60">
-        <p>&copy; {new Date().getFullYear()} Intellizapp.IA - Todos os direitos reservados</p>
+        <p>&copy; {new Date().getFullYear()} Resumefy - Todos os direitos reservados</p>
       </div>
     </div>
   );

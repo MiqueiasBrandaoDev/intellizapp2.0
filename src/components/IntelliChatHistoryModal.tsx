@@ -30,7 +30,7 @@ export function IntelliChatHistoryModal({
             Histórico de Conversas
           </DialogTitle>
           <DialogDescription>
-            Visualize e acesse todas as suas conversas anteriores com o IntelliChat.
+            Visualize e acesse todas as suas conversas anteriores com o ResumeChat.
           </DialogDescription>
         </DialogHeader>
 

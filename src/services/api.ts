@@ -121,7 +121,8 @@ class ApiService {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    isRetry: boolean = false
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
     const token = await this.getToken();
@@ -155,6 +156,28 @@ class ApiService {
       console.log(`📤 Making request to: ${endpoint}`);
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
+
+      // Handle 401 Unauthorized - try to refresh session and retry once
+      if (response.status === 401 && !isRetry) {
+        console.log('🔄 Received 401, attempting to refresh session...');
+
+        // Clear token cache to force fresh token
+        this.clearTokenCache();
+
+        // Try to refresh the session
+        const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+
+        if (refreshError || !refreshedSession) {
+          console.error('❌ Session refresh failed:', refreshError);
+          // Dispatch event to notify app of session expiration
+          window.dispatchEvent(new CustomEvent('sessionExpired'));
+          throw new Error('Sessão expirada. Por favor, faça login novamente.');
+        }
+
+        console.log('✅ Session refreshed, retrying request...');
+        // Retry the request with new token
+        return this.request<T>(endpoint, options, true);
+      }
 
       if (!response.ok) {
         const error = await response.json();

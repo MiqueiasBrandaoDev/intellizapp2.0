@@ -71,7 +71,7 @@ const DashboardLayout = () => {
     { name: 'IA Oculta', href: '/dashboard/ia-oculta', icon: Eye, color: 'text-purple-500' },
   ];
 
-  const intelliChatItem = { name: 'IntelliChat', href: '/dashboard/intellichat', icon: Sparkles, requiresActivePlan: true };
+  const intelliChatItem = { name: 'ResumeChat', href: '/dashboard/intellichat', icon: Sparkles, requiresActivePlan: true };
 
   const isActiveRoute = (href: string) => {
     if (href === '/dashboard') {
@@ -105,7 +105,7 @@ const DashboardLayout = () => {
           <div className="flex h-16 items-center justify-between px-6 border-b border-border">
             <div className="flex items-center space-x-2">
               <Bot className="h-8 w-8 text-primary" />
-              <span className="text-xl font-bold cyber-text">Intellizapp.IA</span>
+              <span className="text-xl font-bold cyber-text">Resumefy</span>
             </div>
             <Button
               variant="ghost"
