@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+config-google
 
 # Environment variables (local only - não commitar!)
 # .env da raiz é commitado pois contém variáveis para produção
