@@ -133,6 +133,7 @@ export interface Resumo {
 export interface ResumoWithGrupo extends Resumo {
   grupo_nome: string;
   grupo_id_externo: string | null;
+  iaoculta: boolean;
 }
 
 export interface CreateResumoData {

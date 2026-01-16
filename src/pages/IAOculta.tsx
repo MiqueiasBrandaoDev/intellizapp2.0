@@ -28,16 +28,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useIAOcultaGrupos, useCheckGrupoExists } from '@/hooks/useIAGrupos';
 import { useEvolutionGroupsContext } from '@/contexts/EvolutionGroupsContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Grupo, CreateGrupoData } from '@/types/database';
-
-// Mock de resumos para IA Oculta (depois conectar ao backend)
-interface ResumoOculto {
-  id: string;
-  grupo_id: string;
-  grupo_nome: string;
-  conteudo: string;
-  criado_em: string;
-}
+import { useResumosIAOculta } from '@/hooks/useResumos';
+import { ResumoModal } from '@/components/ResumoModal';
+import { Grupo, CreateGrupoData, ResumoWithGrupo } from '@/types/database';
 
 const IAOculta = () => {
   const { toast } = useToast();
@@ -59,8 +52,16 @@ const IAOculta = () => {
     existingGrupo: null
   });
 
-  // Mock de resumos (depois conectar ao backend)
-  const [resumos] = useState<ResumoOculto[]>([]);
+  // Estado para modal de resumo expandido
+  const [selectedResumo, setSelectedResumo] = useState<ResumoWithGrupo | null>(null);
+  const [resumoModalOpen, setResumoModalOpen] = useState(false);
+
+  // Buscar resumos da IA Oculta (iaoculta = true)
+  const {
+    resumos,
+    isLoading: resumosLoading,
+    refetch: refetchResumos
+  } = useResumosIAOculta(1, 50, resumoSearchTerm);
 
   const {
     grupos: iaOcultaGroups,
@@ -95,13 +96,6 @@ const IAOculta = () => {
   const availableGroups = evolutionGroups.filter(g => !iaOcultaGroupIds.has(g.grupo_id_externo));
   const filteredAvailableGroups = availableGroups.filter(grupo =>
     grupo.nome_grupo?.toLowerCase().includes(modalSearchTerm.toLowerCase()) || false
-  );
-
-  // Resumos filtrados
-  const filteredResumos = resumos.filter(resumo =>
-    resumo.grupo_nome?.toLowerCase().includes(resumoSearchTerm.toLowerCase()) ||
-    resumo.conteudo?.toLowerCase().includes(resumoSearchTerm.toLowerCase()) ||
-    false
   );
 
   const handleAddGroup = async (grupo: { nome_grupo: string; grupo_id_externo: string; participantes: number }) => {
@@ -515,36 +509,77 @@ const IAOculta = () => {
 
         {/* Aba de Resumos */}
         <TabsContent value="resumos" className="space-y-4 mt-6">
-          {/* Busca */}
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar resumos..."
-              value={resumoSearchTerm}
-              onChange={(e) => setResumoSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+          {/* Header com acoes */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar resumos..."
+                value={resumoSearchTerm}
+                onChange={(e) => setResumoSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Button onClick={() => refetchResumos()} variant="outline" disabled={resumosLoading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${resumosLoading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
           </div>
 
           {/* Lista de Resumos */}
-          {filteredResumos.length > 0 ? (
-            <div className="space-y-4">
-              {filteredResumos.map((resumo) => (
-                <Card key={resumo.id} className="cyber-card">
+          {resumosLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <Card key={i} className="cyber-card animate-pulse">
+                  <CardContent className="p-4">
+                    <div className="space-y-3">
+                      <div className="h-4 bg-muted rounded w-3/4" />
+                      <div className="h-3 bg-muted rounded w-1/2" />
+                      <div className="h-16 bg-muted rounded" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : resumos.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {resumos.map((resumo) => (
+                <Card
+                  key={resumo.id}
+                  className="cyber-card cursor-pointer transition-all hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/10"
+                  onClick={() => {
+                    setSelectedResumo(resumo);
+                    setResumoModalOpen(true);
+                  }}
+                >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Users className="h-4 w-4 text-purple-500" />
-                        <span className="font-medium">{resumo.grupo_nome}</span>
+                        <span className="font-medium truncate max-w-48">{resumo.grupo_nome}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {formatDate(resumo.criado_em)}
-                      </div>
+                      <Badge
+                        variant={resumo.status === 'enviado' ? 'default' : resumo.status === 'erro' ? 'destructive' : 'secondary'}
+                        className={resumo.status === 'enviado' ? 'bg-purple-500/20 text-purple-400' : ''}
+                      >
+                        {resumo.status === 'enviado' ? 'Gerado' : resumo.status === 'erro' ? 'Erro' : 'Pendente'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                      <Calendar className="h-3 w-3" />
+                      {formatDate(resumo.data_criacao)}
+                      {resumo.total_mensagens > 0 && (
+                        <span className="ml-2">• {resumo.total_mensagens} mensagens</span>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-3">
                       {resumo.conteudo}
                     </p>
+                    {resumo.erro_msg && (
+                      <p className="text-xs text-red-400 mt-2">
+                        Erro: {resumo.erro_msg}
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -567,6 +602,14 @@ const IAOculta = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Modal de Resumo Expandido */}
+      <ResumoModal
+        resumo={selectedResumo}
+        open={resumoModalOpen}
+        onOpenChange={setResumoModalOpen}
+        variant="oculta"
+      />
     </div>
   );
 };

@@ -276,7 +276,8 @@ class ApiService {
     dataInicio?: string,
     dataFim?: string,
     grupoId?: number,
-    status?: string
+    status?: string,
+    iaoculta?: boolean
   ): Promise<PaginatedResponse<ResumoWithGrupo>> {
     let endpoint = `/api/resumos?usuario_id=${usuarioId}&page=${page}&limit=${limit}`;
 
@@ -284,6 +285,7 @@ class ApiService {
     if (dataFim) endpoint += `&data_fim=${dataFim}`;
     if (grupoId) endpoint += `&grupo_id=${grupoId}`;
     if (status) endpoint += `&status=${status}`;
+    if (iaoculta !== undefined) endpoint += `&iaoculta=${iaoculta}`;
 
     return this.request(endpoint);
   }
