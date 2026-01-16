@@ -46,7 +46,7 @@
   * {
     @apply border-border;
   }
-  
+
   html {
     scroll-behavior: smooth;
   }
@@ -54,6 +54,40 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Hide password manager icons (LastPass, Bitwarden, etc.) */
+  input[type="email"],
+  input[type="password"],
+  input[type="text"] {
+    background-image: none !important;
+  }
+
+  /* LastPass */
+  [data-lastpass-icon-root],
+  [data-lastpass-root],
+  div[data-lastpass-icon-root] {
+    display: none !important;
+  }
+
+  /* Bitwarden */
+  [data-bwi-root] {
+    display: none !important;
+  }
+
+  /* 1Password */
+  com-1password-notification,
+  com-1password-button {
+    display: none !important;
+  }
+
+  /* Generic password manager overlays */
+  input::-webkit-credentials-auto-fill-button,
+  input::-webkit-contacts-auto-fill-button {
+    visibility: hidden;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
   }
 
   /* Custom scrollbar styles */
@@ -108,6 +142,88 @@
   }
 }
 
+@layer components {
+  .spinner-blade {
+    @apply absolute h-[20%] w-[8%] bg-foreground rounded-[1px];
+    animation: spinner-blade 1s linear infinite;
+    will-change: opacity;
+    top: 37%;
+    left: 44%;
+  }
+
+  .spinner-blade:nth-child(1) {
+    transform: rotate(0deg) translateY(-130%);
+    animation-delay: -1.667s;
+  }
+
+  .spinner-blade:nth-child(2) {
+    transform: rotate(30deg) translateY(-130%);
+    animation-delay: -1.583s;
+  }
+
+  .spinner-blade:nth-child(3) {
+    transform: rotate(60deg) translateY(-130%);
+    animation-delay: -1.5s;
+  }
+
+  .spinner-blade:nth-child(4) {
+    transform: rotate(90deg) translateY(-130%);
+    animation-delay: -1.417s;
+  }
+
+  .spinner-blade:nth-child(5) {
+    transform: rotate(120deg) translateY(-130%);
+    animation-delay: -1.333s;
+  }
+
+  .spinner-blade:nth-child(6) {
+    transform: rotate(150deg) translateY(-130%);
+    animation-delay: -1.25s;
+  }
+
+  .spinner-blade:nth-child(7) {
+    transform: rotate(180deg) translateY(-130%);
+    animation-delay: -1.167s;
+  }
+
+  .spinner-blade:nth-child(8) {
+    transform: rotate(210deg) translateY(-130%);
+    animation-delay: -1.083s;
+  }
+
+  .spinner-blade:nth-child(9) {
+    transform: rotate(240deg) translateY(-130%);
+    animation-delay: -1s;
+  }
+
+  .spinner-blade:nth-child(10) {
+    transform: rotate(270deg) translateY(-130%);
+    animation-delay: -0.917s;
+  }
+
+  .spinner-blade:nth-child(11) {
+    transform: rotate(300deg) translateY(-130%);
+    animation-delay: -0.833s;
+  }
+
+  .spinner-blade:nth-child(12) {
+    transform: rotate(330deg) translateY(-130%);
+    animation-delay: -0.75s;
+  }
+}
+
+@keyframes spinner-blade {
+  0% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 0.25;
+  }
+  100% {
+    opacity: 0.25;
+  }
+}
+
 @layer utilities {
   .cyber-grid {
     background-image: 
@@ -139,6 +255,87 @@
   
   .cyber-text-glow {
     text-shadow: 0 0 8px hsl(150 80% 35% / 0.4);
+  }
+
+  /* Glassmorphism Effects */
+  .glass {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10;
+  }
+
+  .glass-card {
+    @apply bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/10 rounded-2xl;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-500;
+  }
+
+  .glass-card-hover:hover {
+    @apply bg-white/10 border-white/20;
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15),
+      0 0 30px hsl(150 80% 35% / 0.15);
+    transform: translateY(-2px);
+  }
+
+  .glass-stat {
+    @apply backdrop-blur-lg border border-white/10 rounded-xl;
+    background: linear-gradient(to bottom right, rgba(255, 255, 255, 0.08), transparent);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  }
+
+  .glass-pill {
+    @apply bg-white/10 backdrop-blur-md border border-white/10 rounded-full px-4 py-2;
+  }
+
+  .glass-glow {
+    @apply relative;
+  }
+
+  .glass-glow::before {
+    content: '';
+    @apply absolute -inset-1 bg-gradient-to-r from-primary/20 via-secondary/20 to-accent/20 rounded-2xl blur-xl opacity-0 transition-opacity duration-500;
+    z-index: -1;
+  }
+
+  .glass-glow:hover::before {
+    @apply opacity-100;
+  }
+
+  /* Animated Gradient Border */
+  .gradient-border {
+    @apply relative;
+  }
+
+  .gradient-border::before {
+    content: '';
+    @apply absolute -inset-[1px] bg-gradient-to-r from-primary via-secondary to-accent rounded-2xl opacity-50;
+    z-index: -1;
+  }
+
+  /* Floating Animation */
+  .float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .float-delayed {
+    animation: float 6s ease-in-out infinite;
+    animation-delay: -3s;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  /* Stats Number Animation */
+  .stat-number {
+    @apply font-bold tracking-tight;
+    font-variant-numeric: tabular-nums;
   }
 }
 

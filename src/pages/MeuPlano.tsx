@@ -26,7 +26,7 @@ const MeuPlano = () => {
     window.open('https://payment.ticto.app/O58A018E0', '_blank');
   };
 
-  // Calcular IntelliCoins baseado nos grupos (cada grupo = 105 coins)
+  // Calcular ResumeCoins baseado nos grupos (cada grupo = 105 coins)
   const maxGrupos = profile?.max_grupos || 0;
   const totalCoins = maxGrupos * 105; // 105 coins por grupo
   const intelliCoinsDisponiveis = Math.floor((profile?.tokens_mes || 0) / 1000);
@@ -66,12 +66,12 @@ const MeuPlano = () => {
         </p>
       </div>
 
-      {/* IntelliCoins */}
+      {/* ResumeCoins */}
       <Card className="cyber-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Coins className="h-6 w-6 text-yellow-500" />
-            IntelliCoins Disponíveis
+            ResumeCoins Disponíveis
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -122,7 +122,7 @@ const MeuPlano = () => {
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
               <div className="flex items-center gap-2 text-amber-400">
                 <AlertTriangle className="h-4 w-4" />
-                <span className="font-medium text-sm">IntelliCoins baixos</span>
+                <span className="font-medium text-sm">ResumeCoins baixos</span>
               </div>
               <p className="text-xs text-amber-300 mt-1">
                 Considere fazer upgrade para continuar gerando resumos sem interrupções.
@@ -136,13 +136,13 @@ const MeuPlano = () => {
               <span className="font-medium text-sm">Importante sobre transcrições</span>
             </div>
             <p className="text-xs text-blue-300 mt-1">
-              <strong>Atenção:</strong> Transcrições no privado também consomem IntelliCoins. 
+              <strong>Atenção:</strong> Transcrições no privado também consomem ResumeCoins. 
               Certifique-se de ter saldo suficiente para usar esta funcionalidade.
             </p>
           </div>
 
           <div className="text-xs text-muted-foreground text-center">
-            💡 <strong>Cada grupo recebe 105 IntelliCoins</strong> • Usado para gerar resumos com IA
+            💡 <strong>Cada grupo recebe 105 ResumeCoins</strong> • Usado para gerar resumos com IA
           </div>
         </CardContent>
       </Card>
@@ -196,7 +196,7 @@ const MeuPlano = () => {
                 <Coins className="h-6 w-6 text-yellow-500" />
               </div>
               <p className="font-medium">{totalCoins}</p>
-              <p className="text-sm text-muted-foreground">IntelliCoins Totais</p>
+              <p className="text-sm text-muted-foreground">ResumeCoins Totais</p>
             </div>
             <div className="text-center">
               <div className="bg-primary/10 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-2">
@@ -241,7 +241,7 @@ const MeuPlano = () => {
               </div>
               <div className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-green-500" />
-                <span className="text-sm">{totalCoins} IntelliCoins ({maxGrupos} × 105)</span>
+                <span className="text-sm">{totalCoins} ResumeCoins ({maxGrupos} × 105)</span>
               </div>
               <div className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-green-500" />
@@ -306,9 +306,9 @@ const MeuPlano = () => {
           </div>
 
           <div className="space-y-2">
-            <h4 className="font-medium">Como funcionam os IntelliCoins?</h4>
+            <h4 className="font-medium">Como funcionam os ResumeCoins?</h4>
             <p className="text-sm text-muted-foreground">
-              Cada grupo recebe 105 IntelliCoins para gerar resumos inteligentes. 
+              Cada grupo recebe 105 ResumeCoins para gerar resumos inteligentes. 
               Os coins são renovados automaticamente todo mês no dia {(profile as any)?.['dia-renovacao-tokens'] || 'definido'}.
             </p>
           </div>

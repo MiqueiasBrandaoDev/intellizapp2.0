@@ -13,30 +13,134 @@ import {
   RecentActivity,
   ApiResponse,
   PaginatedResponse,
-  GrupoWithMensagens
+  GrupoWithMensagens,
+  IntelliChatSession,
+  IntelliChatMensagem
 } from '@/types/database';
 import { supabase } from '@/lib/supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === 'production' ? '' : 'http://localhost:3001');
 
 class ApiService {
+  private tokenCache: { token: string | null; expiresAt: number } | null = null;
+  private tokenPromise: Promise<string | null> | null = null;
+
   private async getToken(): Promise<string | null> {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token || null;
+    // Se já tem um token válido em cache, usa ele (evita múltiplas chamadas ao Supabase)
+    if (this.tokenCache && Date.now() < this.tokenCache.expiresAt) {
+      return this.tokenCache.token;
+    }
+
+    // Se já tem uma requisição de token em andamento, aguarda ela (evita race conditions)
+    if (this.tokenPromise) {
+      return this.tokenPromise;
+    }
+
+    // Cria uma nova requisição de token
+    this.tokenPromise = this.fetchToken();
+
+    try {
+      const token = await this.tokenPromise;
+      return token;
+    } finally {
+      this.tokenPromise = null;
+    }
+  }
+
+  // Método público para limpar cache (útil após logout)
+  public clearTokenCache(): void {
+    this.tokenCache = null;
+    this.tokenPromise = null;
+  }
+
+  private async fetchToken(): Promise<string | null> {
+    try {
+      // First try to get the current session
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (error) {
+        console.error('❌ Error getting session:', error);
+        return null;
+      }
+
+      // If no session, return null
+      if (!session) {
+        console.warn('⚠️ No session found');
+        return null;
+      }
+
+      // Check if token is expired or about to expire (less than 5 minutes left)
+      const expiresAt = session.expires_at;
+      if (expiresAt) {
+        const now = Math.floor(Date.now() / 1000);
+        const timeUntilExpiry = expiresAt - now;
+
+        // Cache o token com margem de segurança (4 minutos antes de expirar, mínimo 30s)
+        this.tokenCache = {
+          token: session.access_token,
+          expiresAt: Date.now() + Math.max((timeUntilExpiry - 240) * 1000, 30000)
+        };
+
+        // If token expires in less than 5 minutes, refresh it
+        if (timeUntilExpiry < 300) {
+          console.log('🔄 Token expiring soon, refreshing...');
+          const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+
+          if (refreshError) {
+            console.error('❌ Error refreshing session:', refreshError);
+            // If refresh fails, try to use the old token anyway
+            return session.access_token;
+          }
+
+          if (refreshedSession) {
+            console.log('✅ Session refreshed successfully');
+            // Atualiza cache com novo token
+            const newExpiresAt = refreshedSession.expires_at || 0;
+            const newTimeUntilExpiry = newExpiresAt - Math.floor(Date.now() / 1000);
+            this.tokenCache = {
+              token: refreshedSession.access_token,
+              expiresAt: Date.now() + Math.max((newTimeUntilExpiry - 240) * 1000, 30000)
+            };
+            return refreshedSession.access_token;
+          }
+        }
+      } else {
+        // Se não tem expiresAt, cache por 5 minutos
+        this.tokenCache = {
+          token: session.access_token,
+          expiresAt: Date.now() + 5 * 60 * 1000
+        };
+      }
+
+      return session.access_token;
+    } catch (error) {
+      console.error('❌ Exception in getToken:', error);
+      return null;
+    }
   }
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    isRetry: boolean = false
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
     const token = await this.getToken();
 
-    // Set default timeout to 3 minutes for Evolution API calls
+    if (!token && !endpoint.includes('/auth/')) {
+      console.error('❌ No token available for request:', endpoint);
+      throw new Error('Sessão expirada. Por favor, faça login novamente.');
+    }
+
+    // Set default timeout - longer for Evolution and IntelliChat API calls
     const controller = new AbortController();
     const isEvolutionCall = endpoint.includes('/evolution/');
-    const timeoutMs = isEvolutionCall ? 180000 : 30000; // 3 minutes for Evolution, 30s for others
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const isIntelliChatCall = endpoint.includes('/intellichat');
+    const timeoutMs = (isEvolutionCall || isIntelliChatCall) ? 180000 : 30000; // 3 minutes for Evolution/IntelliChat, 30s for others
+    const timeoutId = setTimeout(() => {
+      console.error(`⏱️ Request timeout after ${timeoutMs}ms for ${endpoint}`);
+      controller.abort();
+    }, timeoutMs);
 
     const config: RequestInit = {
       ...options,
@@ -49,18 +153,42 @@ class ApiService {
     };
 
     try {
+      console.log(`📤 Making request to: ${endpoint}`);
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
-      
+
+      // Handle 401 Unauthorized - try to refresh session and retry once
+      if (response.status === 401 && !isRetry) {
+        console.log('🔄 Received 401, attempting to refresh session...');
+
+        // Clear token cache to force fresh token
+        this.clearTokenCache();
+
+        // Try to refresh the session
+        const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+
+        if (refreshError || !refreshedSession) {
+          console.error('❌ Session refresh failed:', refreshError);
+          // Dispatch event to notify app of session expiration
+          window.dispatchEvent(new CustomEvent('sessionExpired'));
+          throw new Error('Sessão expirada. Por favor, faça login novamente.');
+        }
+
+        console.log('✅ Session refreshed, retrying request...');
+        // Retry the request with new token
+        return this.request<T>(endpoint, options, true);
+      }
+
       if (!response.ok) {
         const error = await response.json();
+        console.error(`❌ Request failed [${endpoint}]:`, error);
         throw new Error(error.message || `HTTP ${response.status}`);
       }
 
       return await response.json();
     } catch (error) {
       clearTimeout(timeoutId);
-      console.error(`API Error [${endpoint}]:`, error);
+      console.error(`❌ API Error [${endpoint}]:`, error);
       throw error;
     }
   }
@@ -113,11 +241,11 @@ class ApiService {
   }
 
   // Grupos endpoints
-  async getGrupos(usuarioId: number, page: number = 1, limit: number = 50): Promise<PaginatedResponse<Grupo>> {
+  async getGrupos(usuarioId: string, page: number = 1, limit: number = 50): Promise<PaginatedResponse<Grupo>> {
     return this.request(`/api/grupos?usuario_id=${usuarioId}&page=${page}&limit=${limit}`);
   }
 
-  async getGrupo(id: number): Promise<ApiResponse<GrupoWithMensagens>> {
+  async getGrupo(id: string): Promise<ApiResponse<GrupoWithMensagens>> {
     return this.request(`/api/grupos/${id}`);
   }
 
@@ -128,14 +256,14 @@ class ApiService {
     });
   }
 
-  async updateGrupo(id: number, data: Partial<CreateGrupoData>): Promise<ApiResponse<Grupo>> {
+  async updateGrupo(id: string, data: Partial<CreateGrupoData>): Promise<ApiResponse<Grupo>> {
     return this.request(`/api/grupos/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
-  async deleteGrupo(id: number): Promise<ApiResponse<void>> {
+  async deleteGrupo(id: string): Promise<ApiResponse<void>> {
     return this.request(`/api/grupos/${id}`, {
       method: 'DELETE',
     });
@@ -171,7 +299,8 @@ class ApiService {
     dataInicio?: string,
     dataFim?: string,
     grupoId?: number,
-    status?: string
+    status?: string,
+    iaoculta?: boolean
   ): Promise<PaginatedResponse<ResumoWithGrupo>> {
     let endpoint = `/api/resumos?usuario_id=${usuarioId}&page=${page}&limit=${limit}`;
 
@@ -179,6 +308,7 @@ class ApiService {
     if (dataFim) endpoint += `&data_fim=${dataFim}`;
     if (grupoId) endpoint += `&grupo_id=${grupoId}`;
     if (status) endpoint += `&status=${status}`;
+    if (iaoculta !== undefined) endpoint += `&iaoculta=${iaoculta}`;
 
     return this.request(endpoint);
   }
@@ -211,7 +341,7 @@ class ApiService {
   }
 
   // Evolution API endpoints
-  async getEvolutionGroups(instanceName: string, userId: number): Promise<ApiResponse<any[]>> {
+  async getEvolutionGroups(instanceName: string, userId: string): Promise<ApiResponse<any[]>> {
     return this.request(`/api/evolution/groups/${instanceName}?userId=${userId}`);
   }
 
@@ -219,7 +349,7 @@ class ApiService {
     return this.request(`/api/evolution/status/${instanceName}`);
   }
 
-  async connectEvolution(instanceName: string, userId: number): Promise<ApiResponse<any>> {
+  async connectEvolution(instanceName: string, userId: string): Promise<ApiResponse<any>> {
     return this.request('/api/evolution/connect', {
       method: 'POST',
       body: JSON.stringify({ instanceName, userId }),
@@ -237,6 +367,46 @@ class ApiService {
     return this.request('/api/intellichat', {
       method: 'POST',
       body: JSON.stringify({ input }),
+    });
+  }
+
+  // IntelliChat Sessions endpoints
+  async getUserSessions(usuarioId: string): Promise<ApiResponse<IntelliChatSession[]>> {
+    return this.request(`/api/intellichat-sessions/sessions?usuario_id=${usuarioId}`);
+  }
+
+  async getOrCreateActiveSession(usuarioId: string): Promise<ApiResponse<IntelliChatSession>> {
+    return this.request(`/api/intellichat-sessions/sessions/active?usuario_id=${usuarioId}`);
+  }
+
+  async createNewSession(usuarioId: string): Promise<ApiResponse<IntelliChatSession>> {
+    return this.request('/api/intellichat-sessions/sessions/new', {
+      method: 'POST',
+      body: JSON.stringify({ usuario_id: usuarioId }),
+    });
+  }
+
+  async getSessionMessages(sessionId: string): Promise<ApiResponse<IntelliChatMensagem[]>> {
+    return this.request(`/api/intellichat-sessions/sessions/${sessionId}/messages`);
+  }
+
+  async saveMessage(sessionId: string, role: 'user' | 'assistant', content: string): Promise<ApiResponse<IntelliChatMensagem>> {
+    return this.request('/api/intellichat-sessions/messages', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId, role, content }),
+    });
+  }
+
+  async updateSessionTitle(sessionId: string, titulo: string): Promise<ApiResponse<IntelliChatSession>> {
+    return this.request(`/api/intellichat-sessions/sessions/${sessionId}/title`, {
+      method: 'PATCH',
+      body: JSON.stringify({ titulo }),
+    });
+  }
+
+  async activateSession(sessionId: string): Promise<ApiResponse<IntelliChatSession>> {
+    return this.request(`/api/intellichat-sessions/sessions/${sessionId}/activate`, {
+      method: 'PATCH',
     });
   }
 

@@ -21,15 +21,17 @@ export interface Usuario {
 }
 
 export interface Grupo {
-  id: number;
+  id: string;
   nome_grupo: string | null;
   grupo_id_externo: string | null;
-  usuario_id: number | null;
+  usuario_id: string | null;
   ativo: boolean;
   transcricao_ativa: boolean;
   resumo_ativo: boolean;
   ludico: boolean;
+  iaoculta: boolean;
   criado_em: Date;
+  updated_at?: Date;
 }
 
 export interface GrupoEvento {
@@ -69,11 +71,12 @@ export interface CreateUsuarioData {
 export interface CreateGrupoData {
   nome_grupo: string;
   grupo_id_externo?: string;
-  usuario_id: number;
+  usuario_id: string;
   ativo?: boolean;
   transcricao_ativa?: boolean;
   resumo_ativo?: boolean;
   ludico?: boolean;
+  iaoculta?: boolean;
 }
 
 export interface CreateMensagemData {
@@ -130,6 +133,7 @@ export interface Resumo {
 export interface ResumoWithGrupo extends Resumo {
   grupo_nome: string;
   grupo_id_externo: string | null;
+  iaoculta: boolean;
 }
 
 export interface CreateResumoData {
@@ -166,4 +170,38 @@ export interface PaginatedResponse<T> {
     totalPages: number;
   };
   message?: string;
+}
+
+// IntelliChat Types
+export interface IntelliChatSession {
+  id: string;
+  usuario_id: string;
+  titulo?: string;
+  ativa: boolean;
+  criado_em: Date;
+  updated_at?: Date;
+}
+
+export interface IntelliChatMensagem {
+  id: string;
+  session_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  criado_em: Date;
+}
+
+export interface CreateIntelliChatSessionData {
+  usuario_id: string;
+  titulo?: string;
+  ativa?: boolean;
+}
+
+export interface CreateIntelliChatMensagemData {
+  session_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface IntelliChatSessionWithMessages extends IntelliChatSession {
+  mensagens?: IntelliChatMensagem[];
 }

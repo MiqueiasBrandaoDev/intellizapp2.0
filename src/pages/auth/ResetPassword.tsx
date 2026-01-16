@@ -156,7 +156,7 @@ const ResetPassword = () => {
         </Card>
 
         <div className="absolute bottom-4 text-center text-xs text-muted-foreground/60">
-          <p>&copy; {new Date().getFullYear()} Intellizapp.IA - Todos os direitos reservados</p>
+          <p>&copy; {new Date().getFullYear()} Resumefy - Todos os direitos reservados</p>
         </div>
       </div>
     );
@@ -278,7 +278,7 @@ const ResetPassword = () => {
 
       {/* Footer */}
       <div className="absolute bottom-4 text-center text-xs text-muted-foreground/60">
-        <p>&copy; {new Date().getFullYear()} Intellizapp.IA - Todos os direitos reservados</p>
+        <p>&copy; {new Date().getFullYear()} Resumefy - Todos os direitos reservados</p>
       </div>
     </div>
   );

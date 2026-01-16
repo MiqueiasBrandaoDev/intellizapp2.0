@@ -1,42 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { apiService } from '@/services/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/lib/supabase';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { 
-  User, 
-  Settings as SettingsIcon, 
-  Shield, 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  User,
+  Shield,
   Clock,
   Bot,
-  Key,
   Volume2,
-  Smartphone,
   Save,
-  Eye,
-  EyeOff,
-  AlertTriangle
+  AlertTriangle,
+  FileText,
+  Settings as SettingsIcon,
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 
 const Settings = () => {
   const { profile, updateProfile } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('perfil');
+  const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [formData, setFormData] = useState({
     nome: profile?.nome || '',
@@ -54,20 +47,12 @@ const Settings = () => {
   });
 
   const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
 
-  // Atualizar formData sempre que profile mudar (dados frescos do banco)
   useEffect(() => {
     if (profile) {
-      console.log('🔄 Atualizando formData com dados frescos do usuário:', {
-        'transcricao-pvd': profile['transcricao-pvd'],
-        ludico: profile.ludico,
-        agendamento: profile.agendamento
-      });
-
       setFormData({
         nome: profile.nome || '',
         email: profile.email || '',
@@ -104,8 +89,8 @@ const Settings = () => {
     try {
       await updateProfile(formData);
       toast({
-        title: "Perfil atualizado",
-        description: "Suas configurações foram salvas com sucesso."
+        title: "Configurações salvas",
+        description: "Suas preferências foram atualizadas com sucesso."
       });
     } catch (error) {
       toast({
@@ -119,7 +104,7 @@ const Settings = () => {
   };
 
   const handleChangePassword = async () => {
-    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+    if (!passwordData.newPassword || !passwordData.confirmPassword) {
       toast({
         variant: "destructive",
         title: "Erro",
@@ -146,188 +131,284 @@ const Settings = () => {
       return;
     }
 
-    setLoading(true);
-    try {
-      await apiService.changePassword(user!.id, passwordData.currentPassword, passwordData.newPassword);
-      
-      setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
+    setPasswordLoading(true);
+    setPasswordMessage(null);
+
+    // Criar uma Promise que resolve quando o evento USER_UPDATED é disparado ou dá erro/timeout
+    const result = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+      let resolved = false;
+
+      // Timeout de 10 segundos
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          resolve({ success: false, error: 'Tempo limite excedido. Tente novamente.' });
+        }
+      }, 10000);
+
+      // Listener para capturar o evento USER_UPDATED
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+        if (resolved) return;
+
+        if (event === 'USER_UPDATED') {
+          resolved = true;
+          clearTimeout(timeout);
+          subscription.unsubscribe();
+          resolve({ success: true });
+        }
       });
-      
-      toast({
-        title: "Senha alterada",
-        description: "Sua senha foi alterada com sucesso."
-      });
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: error.message || "Não foi possível alterar a senha."
-      });
-    } finally {
-      setLoading(false);
+
+      // Fazer a chamada - se der erro, resolve imediatamente
+      supabase.auth.updateUser({ password: passwordData.newPassword })
+        .then(({ error }) => {
+          if (error && !resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            subscription.unsubscribe();
+
+            let errorMessage = error.message;
+            if (error.message.includes('different from the old password')) {
+              errorMessage = 'A nova senha deve ser diferente da senha atual.';
+            } else if (error.message.includes('at least')) {
+              errorMessage = 'A senha deve ter pelo menos 6 caracteres.';
+            }
+            resolve({ success: false, error: errorMessage });
+          }
+        });
+    });
+
+    if (result.success) {
+      setPasswordData({ newPassword: '', confirmPassword: '' });
+      setPasswordMessage({ type: 'success', text: 'Senha alterada com sucesso!' });
+    } else {
+      setPasswordMessage({ type: 'error', text: result.error || 'Não foi possível alterar a senha.' });
     }
+
+    setPasswordLoading(false);
+  };
+
+  const getNextResumeTime = () => {
+    const now = new Date();
+    const [hours, minutes] = formData.horaResumo.split(':');
+    const resumeTime = new Date();
+    resumeTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+    if (now > resumeTime) {
+      return `Amanhã às ${formData.horaResumo}`;
+    }
+    return `Hoje às ${formData.horaResumo}`;
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold cyber-text">Configurações</h1>
-        <p className="text-muted-foreground">
-          Gerencie suas preferências e configurações da conta
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl sm:text-3xl font-bold cyber-text flex items-center gap-2">
+            <SettingsIcon className="h-7 w-7" />
+            Configurações
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Gerencie suas preferências e configurações da conta
+          </p>
+        </div>
+
+        {/* Status Badge */}
+        <div className="flex items-center gap-3">
+          <Badge
+            variant="outline"
+            className={profile?.plano_ativo
+              ? "bg-green-500/10 text-green-400 border-green-500/30 px-3 py-1"
+              : "bg-red-500/10 text-red-400 border-red-500/30 px-3 py-1"
+            }
+          >
+            <Bot className="h-3.5 w-3.5 mr-1.5" />
+            Plano {profile?.plano_ativo ? 'Ativo' : 'Inativo'}
+          </Badge>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        {/* Profile Settings */}
-        <div className="lg:col-span-2 space-y-6">
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4 h-auto p-1 bg-muted/50">
+          <TabsTrigger
+            value="perfil"
+            className="flex items-center gap-2 py-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
+          >
+            <User className="h-4 w-4" />
+            <span className="hidden sm:inline">Perfil</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="resumos"
+            className="flex items-center gap-2 py-2.5 data-[state=active]:bg-secondary/10 data-[state=active]:text-secondary"
+          >
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">Resumos</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="transcricoes"
+            className="flex items-center gap-2 py-2.5 data-[state=active]:bg-accent/10 data-[state=active]:text-accent"
+          >
+            <Volume2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Transcrições</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="seguranca"
+            className="flex items-center gap-2 py-2.5 data-[state=active]:bg-destructive/10 data-[state=active]:text-destructive"
+          >
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">Segurança</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Tab: Perfil */}
+        <TabsContent value="perfil" className="mt-6 space-y-6">
           <Card className="cyber-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <User className="h-5 w-5 text-primary" />
-                Informações Pessoais
+                Informações da Conta
               </CardTitle>
+              <CardDescription>
+                Dados básicos do seu perfil
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 gap-4">
+            <CardContent className="space-y-6">
+              <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="nome">Nome</Label>
+                  <Label htmlFor="nome" className="text-sm font-medium">Nome</Label>
                   <Input
                     disabled
                     id="nome"
                     value={formData.nome}
-                    onChange={(e) => handleInputChange('nome', e.target.value)}
-                    className="cyber-border"
+                    className="cyber-border bg-muted/50"
                   />
+                  <p className="text-xs text-muted-foreground">Nome não pode ser alterado</p>
                 </div>
-                
+
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                   <Input
                     id="email"
                     type="email"
                     value={formData.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    className="cyber-border"
+                    className="cyber-border bg-muted/50"
                     disabled
                   />
+                  <p className="text-xs text-muted-foreground">Email não pode ser alterado</p>
                 </div>
               </div>
-              
+
+              <div className="pt-4 border-t border-border/50">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Conta criada em</span>
+                  <span className="font-medium">
+                    {profile?.criado_em ? new Date(profile.criado_em).toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric'
+                    }) : '-'}
+                  </span>
+                </div>
+              </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
-          {/* Resume Settings */}
+        {/* Tab: Resumos */}
+        <TabsContent value="resumos" className="mt-6 space-y-6">
           <Card className="cyber-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Clock className="h-5 w-5 text-secondary" />
-                Configurações de Resumo
+                Horário do Resumo Automático
               </CardTitle>
+              <CardDescription>
+                Configure quando os resumos serão enviados diariamente
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Horário do Resumo - Interface Melhorada */}
-              <div className="space-y-4 p-6 border border-secondary/20 rounded-lg bg-gradient-to-r from-secondary/5 to-transparent">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-full bg-secondary/10">
-                    <Clock className="h-6 w-6 text-secondary" />
-                  </div>
-                  <div className="flex-1">
-                    <Label htmlFor="horaResumo" className="text-lg font-semibold">
-                      Horário do Resumo Automático
-                    </Label>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Defina quando os resumos dos grupos serão enviados automaticamente todos os dias
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 sm:ml-16">
-                  <div className="space-y-2">
-                    <Input
-                      id="horaResumo"
-                      type="time"
-                      value={formData.horaResumo}
-                      onChange={(e) => handleInputChange('horaResumo', e.target.value)}
-                      className="cyber-border w-full sm:w-40 text-xl font-mono text-center"
-                    />
-                  </div>
-                  
-                  <div className="flex-1 space-y-2">
-                    <div className="text-sm font-medium">Próximo envio</div>
-                    <div className="text-lg font-semibold text-primary">
-                      {(() => {
-                        const now = new Date();
-                        const [hours, minutes] = formData.horaResumo.split(':');
-                        const resumeTime = new Date();
-                        resumeTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-                        
-                        // Se já passou do horário hoje, mostrar amanhã
-                        if (now > resumeTime) {
-                          resumeTime.setDate(resumeTime.getDate() + 1);
-                          return `Amanhã às ${formData.horaResumo}`;
-                        } else {
-                          return `Hoje às ${formData.horaResumo}`;
-                        }
-                      })()}
-                    </div>
-                    <div className="text-xs text-muted-foreground flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      Resumos enviados diariamente no horário configurado
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
-                  <div className="space-y-0.5">
-                    <Label>Resumo do Dia Anterior</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Incluir mensagens do dia anterior no resumo
-                    </p>
-                  </div>
-                  <Switch
-                    checked={formData.resumoDiaAnterior}
-                    onCheckedChange={(checked) => handleInputChange('resumoDiaAnterior', checked)}
+            <CardContent>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="horaResumo" className="text-sm font-medium">Horário</Label>
+                  <Input
+                    id="horaResumo"
+                    type="time"
+                    value={formData.horaResumo}
+                    onChange={(e) => handleInputChange('horaResumo', e.target.value)}
+                    className="cyber-border w-32 text-lg font-mono text-center"
                   />
                 </div>
 
+                <div className="flex-1 p-4 rounded-lg bg-secondary/5 border border-secondary/20">
+                  <div className="flex items-center gap-2 text-secondary">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="text-sm font-medium">Próximo envio</span>
+                  </div>
+                  <p className="text-lg font-semibold mt-1">{getNextResumeTime()}</p>
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                    Resumos enviados automaticamente
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Transcription Settings */}
           <Card className="cyber-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Volume2 className="h-5 w-5 text-accent" />
-                Configurações de Transcrições Privadas
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FileText className="h-5 w-5 text-secondary" />
+                Opções de Resumo
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
-                <div className="flex items-center gap-2 text-blue-400">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span className="font-medium text-sm">Importante sobre transcrições</span>
+            <CardContent>
+              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                <div className="space-y-1">
+                  <Label className="font-medium">Resumo do Dia Anterior</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Incluir mensagens do dia anterior no resumo
+                  </p>
                 </div>
-                <p className="text-xs text-blue-300 mt-1">
-                  <strong>Atenção:</strong> Transcrições no privado também consomem IntelliCoins. 
-                  Certifique-se de ter saldo suficiente para usar esta funcionalidade.
+                <Switch
+                  checked={formData.resumoDiaAnterior}
+                  onCheckedChange={(checked) => handleInputChange('resumoDiaAnterior', checked)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Transcrições */}
+        <TabsContent value="transcricoes" className="mt-6 space-y-6">
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-blue-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium text-blue-400">Importante sobre transcrições</p>
+                <p className="text-sm text-blue-300/80 mt-1">
+                  Transcrições no privado consomem ResumeCoins. Certifique-se de ter saldo suficiente.
                 </p>
               </div>
+            </div>
+          </div>
 
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Transcrição em Conversas Privadas</Label>
+          <Card className="cyber-card">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Volume2 className="h-5 w-5 text-accent" />
+                Configurações de Transcrição
+              </CardTitle>
+              <CardDescription>
+                Controle como os áudios são transcritos em conversas privadas
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                <div className="space-y-1">
+                  <Label className="font-medium">Transcrição em Conversas Privadas</Label>
                   <p className="text-sm text-muted-foreground">
-                    Incluir áudios de mensagens privadas
+                    Transcrever áudios recebidos em chats privados
                   </p>
                 </div>
                 <Switch
@@ -336,11 +417,11 @@ const Settings = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Transcrever Próprios Áudios</Label>
+              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                <div className="space-y-1">
+                  <Label className="font-medium">Transcrever Meus Áudios</Label>
                   <p className="text-sm text-muted-foreground">
-                    Incluir transcrição dos seus próprios áudios
+                    Incluir transcrição dos seus próprios áudios enviados
                   </p>
                 </div>
                 <Switch
@@ -350,105 +431,104 @@ const Settings = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
-          {/* Change Password */}
+        {/* Tab: Segurança */}
+        <TabsContent value="seguranca" className="mt-6 space-y-6">
           <Card className="cyber-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Shield className="h-5 w-5 text-destructive" />
                 Alterar Senha
               </CardTitle>
+              <CardDescription>
+                Atualize sua senha de acesso
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="current-password">Senha Atual</Label>
-                <Input
-                  id="current-password"
-                  type="password"
-                  value={passwordData.currentPassword}
-                  onChange={(e) => handlePasswordChange('currentPassword', e.target.value)}
-                  className="cyber-border"
-                />
+              {/* Mensagem de feedback */}
+              {passwordMessage && (
+                <div className={`p-4 rounded-lg flex items-center gap-3 ${
+                  passwordMessage.type === 'success'
+                    ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+                    : 'bg-red-500/10 border border-red-500/30 text-red-400'
+                }`}>
+                  {passwordMessage.type === 'success' ? (
+                    <CheckCircle2 className="h-5 w-5 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="h-5 w-5 shrink-0" />
+                  )}
+                  <span className="text-sm font-medium">{passwordMessage.text}</span>
+                </div>
+              )}
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">Nova Senha</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    value={passwordData.newPassword}
+                    onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
+                    className="cyber-border"
+                    placeholder="Mínimo 6 caracteres"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
+                    className="cyber-border"
+                    placeholder="Repita a nova senha"
+                  />
+                </div>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="new-password">Nova Senha</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  value={passwordData.newPassword}
-                  onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
-                  className="cyber-border"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
-                  className="cyber-border"
-                />
-              </div>
-              
-              <Button 
+
+              <Button
                 onClick={handleChangePassword}
-                disabled={loading}
+                disabled={passwordLoading}
                 variant="destructive"
-                className="w-full"
+                className="w-full sm:w-auto"
               >
-                Alterar Senha
+                {passwordLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Shield className="mr-2 h-4 w-4" />
+                )}
+                {passwordLoading ? 'Alterando...' : 'Alterar Senha'}
               </Button>
             </CardContent>
           </Card>
-        </div>
+        </TabsContent>
+      </Tabs>
 
-        {/* Account Status Sidebar */}
-        <div className="space-y-6">
-          {/* Account Status */}
-          <Card className="cyber-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bot className="h-5 w-5 text-accent" />
-                Status da Conta
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Plano</span>
-                <Badge
-                  className={profile?.plano_ativo
-                    ? "bg-green-500/20 text-green-400 border-green-500/30"
-                    : "bg-red-500/20 text-red-400 border-red-500/30"
-                  }
+      {/* Save Button - Fixed at bottom (hidden on security tab) */}
+      {activeTab !== 'seguranca' && (
+        <div className="sticky bottom-4 pt-4">
+          <Card className="cyber-card border-primary/20 bg-background/95 backdrop-blur">
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <p className="text-sm text-muted-foreground">
+                  Lembre-se de salvar suas alterações
+                </p>
+                <Button
+                  onClick={handleSaveProfile}
+                  disabled={loading}
+                  className="w-full sm:w-auto cyber-button"
+                  size="lg"
                 >
-                  {profile?.plano_ativo ? 'Ativo' : 'Inativo'}
-                </Badge>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Criado em</span>
-                <span className="text-sm text-muted-foreground">
-                  {profile?.criado_em ? new Date(profile.criado_em).toLocaleDateString('pt-BR') : '-'}
-                </span>
+                  <Save className="mr-2 h-4 w-4" />
+                  {loading ? 'Salvando...' : 'Salvar Configurações'}
+                </Button>
               </div>
             </CardContent>
           </Card>
-
-          {/* Save Button */}
-          <Button 
-            onClick={handleSaveProfile}
-            disabled={loading}
-            className="w-full cyber-button"
-            size="lg"
-          >
-            <Save className="mr-2 h-4 w-4" />
-            {loading ? 'Salvando...' : 'Salvar Configurações'}
-          </Button>
         </div>
-      </div>
+      )}
     </div>
   );
 };

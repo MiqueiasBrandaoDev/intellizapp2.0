@@ -12,9 +12,10 @@ dist
 dist-ssr
 *.local
 
-# Environment variables
-.env
+# Environment variables (local only - não commitar!)
+# .env da raiz é commitado pois contém variáveis para produção
 backend/.env
+.env
 
 # Editor directories and files
 .vscode/*
